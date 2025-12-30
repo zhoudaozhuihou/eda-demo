@@ -1,0 +1,55 @@
+# ===============
+# OS / System
+# ===============
+.DS_Store
+Thumbs.db
+
+# ===============
+# Editor / IDE
+# ===============
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ===============
+# Dependencies
+# ===============
+node_modules/
+
+# ===============
+# Build outputs
+# ===============
+dist/
+build/
+coverage/
+
+# ===============
+# Runtime caches
+# ===============
+.vite/
+.cache/
+.turbo/
+
+# ===============
+# Logs
+# ===============
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===============
+# Local env files (never commit secrets)
+# Keep `.env.example` tracked if present.
+# ===============
+.env
+.env.*
+!.env.example
+
+# ===============
+# TypeScript / tooling
+# ===============
+*.tsbuildinfo
+.eslintcache

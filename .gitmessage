@@ -1,0 +1,22 @@
+# 提交信息模板（建议配合 `git config commit.template .gitmessage` 使用）
+#
+# 格式建议：Conventional Commits
+# <type>(<scope>): <subject>
+#
+# type: feat | fix | docs | style | refactor | perf | test | build | ci | chore | revert
+# scope: 可选，比如 api-catalog / datasets / ui / build 等
+#
+# 示例：
+# feat(api-catalog): 优化文档弹窗可拖拽调整尺寸
+#
+# 说明（可选，写清楚“为什么”而不是“做了什么”）：
+#
+# 关联（可选）：
+# - Issue: #
+# - Breaking Change: yes/no
+#
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
