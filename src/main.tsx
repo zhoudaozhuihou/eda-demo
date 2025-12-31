@@ -1,12 +1,16 @@
 
 import { createRoot } from "react-dom/client";
 import { useMemo } from "react";
+import type { ReactNode } from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { useTheme as useNextTheme } from "next-themes";
+import { Provider } from "react-redux";
 import { CssBaseline } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
-import App from "./app/App.tsx";
+import App from "./app/App";
 import "./styles/index.css";
+import { store } from "./store/store";
+import "./i18n";
 
 const lightPaletteTokens = {
   background: "#ffffff",
@@ -36,7 +40,7 @@ const darkPaletteTokens = {
   destructiveForeground: "#ffffff",
 };
 
-function MuiAppThemeProvider({ children }: { children: React.ReactNode }) {
+function MuiAppThemeProvider({ children }: { children: ReactNode }) {
   const { resolvedTheme } = useNextTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -79,15 +83,17 @@ function MuiAppThemeProvider({ children }: { children: React.ReactNode }) {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <NextThemesProvider
-    attribute="class"
-    defaultTheme="light"
-    enableSystem={false}
-    storageKey="eda-platform-theme"
-  >
-    <MuiAppThemeProvider>
-      <App />
-    </MuiAppThemeProvider>
-  </NextThemesProvider>,
+  <Provider store={store}>
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="light"
+      enableSystem={false}
+      storageKey="eda-platform-theme"
+    >
+      <MuiAppThemeProvider>
+        <App />
+      </MuiAppThemeProvider>
+    </NextThemesProvider>
+  </Provider>,
 );
   

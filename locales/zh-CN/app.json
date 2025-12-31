@@ -1,0 +1,78 @@
+{
+  "team": {
+    "switch": "切换团队",
+    "current": "当前团队",
+    "tech": "技术团队",
+    "product": "产品团队",
+    "data": "数据团队",
+    "members": "{{count}} 成员"
+  },
+  "serviceAccount": {
+    "label": "服务账号",
+    "prod": "生产环境",
+    "test": "测试环境",
+    "dev": "开发环境",
+    "add": "+ 添加服务账号"
+  },
+  "notifications": {
+    "title": "通知",
+    "viewAll": "查看全部",
+    "markAllRead": "全部已读",
+    "history": "历史",
+    "historyTitle": "通知历史",
+    "filterAll": "全部",
+    "filterUnread": "未读",
+    "empty": "暂无通知",
+    "unreadBadge": "未读",
+    "level": {
+      "success": "成功",
+      "warning": "警告",
+      "error": "错误"
+    },
+    "seed": {
+      "publishSuccess": {
+        "title": "API 发布成功",
+        "content": "{{apiName}} 已发布到生产环境"
+      },
+      "performanceWarning": {
+        "title": "性能预警",
+        "content": "{{apiName}} 平均延迟升高至 {{latency}}ms"
+      },
+      "securityAlert": {
+        "title": "安全提醒",
+        "content": "检测到异常访问：IP {{ip}}"
+      },
+      "trafficSpike": {
+        "title": "调用量波动",
+        "content": "{{apiName}} 今日调用量上涨 {{percent}}%"
+      },
+      "approvalReminder": {
+        "title": "审核提醒",
+        "content": "有 {{count}} 个 API 等待审批"
+      },
+      "healthCheck": {
+        "title": "连接健康检查",
+        "content": "{{name}} 健康检查通过"
+      }
+    }
+  },
+  "theme": {
+    "toggle": "切换白天/黑夜主题",
+    "light": "白天",
+    "dark": "黑夜"
+  },
+  "actions": {
+    "close": "关闭"
+  },
+  "userMenu": {
+    "profile": "个人信息",
+    "settings": "设置",
+    "help": "帮助",
+    "logout": "退出登录"
+  },
+  "user": {
+    "roles": {
+      "admin": "管理员"
+    }
+  }
+}

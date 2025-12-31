@@ -1,0 +1,269 @@
+{
+  "page": {
+    "title": "API 构建器",
+    "subtitle": "基于数据集快速生成 API，并内置最佳实践默认值"
+  },
+  "context": {
+    "banner": "从数据集构建：{{name}}"
+  },
+  "steps": {
+    "1": {
+      "name": "选择构建模式",
+      "desc": "选择 API 的生成方式"
+    },
+    "2": {
+      "name": "配置数据源",
+      "desc": "选择数据集、数据库与请求方法"
+    },
+    "3": {
+      "name": "定义参数",
+      "desc": "选择请求参数与返回字段"
+    },
+    "4": {
+      "name": "编写 SQL",
+      "desc": "生成、校验并优化查询逻辑"
+    },
+    "5": {
+      "name": "发布",
+      "desc": "配置鉴权与限流并发布 API"
+    }
+  },
+  "buildMode": {
+    "title": "选择构建模式"
+  },
+  "buildModes": {
+    "single": {
+      "title": "单表查询",
+      "description": "基于一个数据集/表生成标准 API，配置最少，上手最快。",
+      "badges": {
+        "fast": "快速上手",
+        "crud": "适配 CRUD"
+      }
+    },
+    "join": {
+      "title": "多表关联",
+      "description": "关联多个相关表，对外提供统一的 API 返回结构。",
+      "badges": {}
+    },
+    "inject": {
+      "title": "注入点模式",
+      "description": "在保证参数安全的前提下，提供受控注入点以支持动态条件。",
+      "badges": {
+        "dynamic": "动态过滤",
+        "parameterized": "参数化"
+      }
+    },
+    "batch": {
+      "title": "批量生成",
+      "description": "基于模板与统一规范批量生成多个 API。",
+      "badges": {
+        "bulk": "批量",
+        "template": "模板"
+      }
+    }
+  },
+  "dataSource": {
+    "title": "配置数据源",
+    "databaseType": {
+      "label": "数据库类型",
+      "hint": "会影响 SQL 方言与参数占位符写法。",
+      "options": {
+        "mongoDb": "MongoDB（NoSQL）",
+        "bigQuery": "Google BigQuery",
+        "maxCompute": "阿里云 MaxCompute"
+      }
+    },
+    "apiName": {
+      "label": "API 名称",
+      "placeholder": "例如：getUserOrders"
+    },
+    "dataset": {
+      "label": "数据集",
+      "placeholder": "请选择数据集"
+    },
+    "method": {
+      "label": "HTTP 方法",
+      "options": {
+        "get": "GET",
+        "post": "POST",
+        "put": "PUT",
+        "delete": "DELETE"
+      }
+    }
+  },
+  "datasets": {
+    "userOrders": "用户订单",
+    "productInfo": "商品信息",
+    "customerProfile": "客户画像",
+    "inventoryData": "库存数据"
+  },
+  "domains": {
+    "order": "订单",
+    "product": "商品",
+    "user": "用户",
+    "inventory": "库存"
+  },
+  "join": {
+    "title": "关联表配置",
+    "actions": {
+      "add": "添加关联表"
+    },
+    "empty": "尚未添加关联表。",
+    "badges": {
+      "innerJoin": "INNER JOIN（内连接）",
+      "leftJoin": "LEFT JOIN（左连接）"
+    },
+    "fields": {
+      "table": {
+        "label": "表名",
+        "placeholder": "请选择表"
+      },
+      "alias": {
+        "label": "别名",
+        "placeholder": "例如：p"
+      },
+      "joinType": {
+        "label": "关联类型",
+        "options": {
+          "inner": "INNER JOIN（内连接）",
+          "left": "LEFT JOIN（左连接）",
+          "right": "RIGHT JOIN（右连接）"
+        }
+      },
+      "onCondition": {
+        "label": "ON 条件",
+        "placeholder": "例如：t1.id = t2.order_id"
+      }
+    }
+  },
+  "batch": {
+    "config": {
+      "title": "批量生成",
+      "databaseType": {
+        "label": "数据库类型"
+      },
+      "description": {
+        "title": "一键生成多个 API",
+        "body": "选择要生成的表，系统将按统一规范创建一组 API。生成后可逐个调整细节。"
+      },
+      "selectTables": {
+        "label": "选择表",
+        "selected": "已选择 {{selected}} / {{total}}",
+        "willGenerate": "将生成 API：{{name}}",
+        "apiNamePlaceholder": "API 名称"
+      }
+    },
+    "preview": {
+      "title": "预览",
+      "ready": "已准备生成 {{count}} 个 API",
+      "item": "{{table}} → {{apiName}}",
+      "hint": "生成后会为每个 API 创建草稿，请在发布前复核并优化。"
+    },
+    "sql": {
+      "title": "SQL 示例",
+      "subtitle": "展示 {{databaseType}} 的示例 SQL。",
+      "tableLabel": "表：{{table}}",
+      "more": "还有 {{count}} 个生成的 API 未展示。"
+    }
+  },
+  "params": {
+    "title": "定义参数与返回",
+    "actions": {
+      "autoGenerateSql": "自动生成 SQL"
+    },
+    "table": {
+      "headers": {
+        "fieldName": "字段",
+        "type": "类型",
+        "asParam": "作为参数",
+        "required": "必填",
+        "asReturn": "作为返回",
+        "defaultValue": "默认值"
+      },
+      "defaultValue": {
+        "placeholder": "-"
+      }
+    }
+  },
+  "sql": {
+    "title": "SQL",
+    "tabs": {
+      "editor": "编辑器",
+      "plan": "执行计划"
+    },
+    "editor": {
+      "placeholder": "在此编写查询语句..."
+    },
+    "actions": {
+      "format": "格式化",
+      "syntaxCheck": "语法检查",
+      "runTest": "运行测试"
+    },
+    "plan": {
+      "text": "预估性能得分：{{score}}/100"
+    },
+    "optimization": {
+      "title": "优化建议",
+      "warnings": {
+        "addIndex": "建议为 `{{field}}` 添加索引。",
+        "largeResult": "结果集可能较大，建议增加过滤条件或分页。"
+      }
+    },
+    "comments": {
+      "injectPoint": "动态条件注入点",
+      "pagination": "分页",
+      "clickhouseSettings": "ClickHouse 执行参数",
+      "maxComputePagination": "分页（MaxCompute）"
+    }
+  },
+  "publish": {
+    "title": "发布",
+    "authType": {
+      "label": "鉴权方式",
+      "options": {
+        "apiKey": "API Key",
+        "oauth2": "OAuth 2.0",
+        "none": "不鉴权"
+      }
+    },
+    "domain": {
+      "label": "领域",
+      "placeholder": "请选择领域"
+    },
+    "qpsLimit": {
+      "label": "QPS 限流",
+      "placeholder": "例如：100",
+      "hint": "按客户端/API Key 进行限流。"
+    },
+    "security": {
+      "title": "安全检查",
+      "status": {
+        "pass": "通过",
+        "applied": "已应用",
+        "configured": "已配置",
+        "enabled": "已启用"
+      },
+      "items": {
+        "sqlInjection": "SQL 注入防护：{{status}}",
+        "schema": "Schema 校验：{{status}}",
+        "performanceScore": "性能得分：{{score}}/100",
+        "masking": "敏感数据脱敏：{{status}}",
+        "pagination": "分页默认策略：{{status}}",
+        "injectParameterized": "注入点参数化：{{status}}",
+        "batchCount": "将生成 API 数量：{{count}}"
+      }
+    }
+  },
+  "nav": {
+    "prev": "上一步",
+    "next": "下一步",
+    "submit": "发布 API",
+    "submitBatch": "生成 {{count}} 个 API"
+  },
+  "toast": {
+    "errors": {
+      "contextIncomplete": "数据集上下文不完整，请重新选择数据集。",
+      "noDatasetFields": "所选数据集中未找到字段。"
+    }
+  }
+}

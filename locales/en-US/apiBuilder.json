@@ -1,0 +1,269 @@
+{
+  "page": {
+    "title": "API Builder",
+    "subtitle": "Generate APIs from datasets with best-practice defaults"
+  },
+  "context": {
+    "banner": "Building from dataset: {{name}}"
+  },
+  "steps": {
+    "1": {
+      "name": "Select build mode",
+      "desc": "Choose how the API should be generated"
+    },
+    "2": {
+      "name": "Configure data source",
+      "desc": "Select dataset, database, and request method"
+    },
+    "3": {
+      "name": "Define parameters",
+      "desc": "Pick request parameters and response fields"
+    },
+    "4": {
+      "name": "Write SQL",
+      "desc": "Generate, validate, and optimize query logic"
+    },
+    "5": {
+      "name": "Publish",
+      "desc": "Set auth and limits, then publish the API"
+    }
+  },
+  "buildMode": {
+    "title": "Select build mode"
+  },
+  "buildModes": {
+    "single": {
+      "title": "Single-table query",
+      "description": "Generate a standard API from one dataset/table with minimal configuration.",
+      "badges": {
+        "fast": "Fast setup",
+        "crud": "CRUD-friendly"
+      }
+    },
+    "join": {
+      "title": "Join query",
+      "description": "Join multiple related tables and expose a unified API response.",
+      "badges": {}
+    },
+    "inject": {
+      "title": "SQL injection point",
+      "description": "Insert a controlled injection point for dynamic conditions while keeping parameters safe.",
+      "badges": {
+        "dynamic": "Dynamic filters",
+        "parameterized": "Parameterized"
+      }
+    },
+    "batch": {
+      "title": "Batch generation",
+      "description": "Generate multiple APIs in bulk with templates and consistent conventions.",
+      "badges": {
+        "bulk": "Bulk",
+        "template": "Templates"
+      }
+    }
+  },
+  "dataSource": {
+    "title": "Configure data source",
+    "databaseType": {
+      "label": "Database type",
+      "hint": "Affects SQL dialect and parameter syntax.",
+      "options": {
+        "mongoDb": "MongoDB (NoSQL)",
+        "bigQuery": "Google BigQuery",
+        "maxCompute": "Alibaba Cloud MaxCompute"
+      }
+    },
+    "apiName": {
+      "label": "API name",
+      "placeholder": "e.g., getUserOrders"
+    },
+    "dataset": {
+      "label": "Dataset",
+      "placeholder": "Select a dataset"
+    },
+    "method": {
+      "label": "HTTP method",
+      "options": {
+        "get": "GET",
+        "post": "POST",
+        "put": "PUT",
+        "delete": "DELETE"
+      }
+    }
+  },
+  "datasets": {
+    "userOrders": "User Orders",
+    "productInfo": "Product Info",
+    "customerProfile": "Customer Profile",
+    "inventoryData": "Inventory Data"
+  },
+  "domains": {
+    "order": "Order",
+    "product": "Product",
+    "user": "User",
+    "inventory": "Inventory"
+  },
+  "join": {
+    "title": "Join tables",
+    "actions": {
+      "add": "Add join"
+    },
+    "empty": "No join tables added yet.",
+    "badges": {
+      "innerJoin": "INNER JOIN",
+      "leftJoin": "LEFT JOIN"
+    },
+    "fields": {
+      "table": {
+        "label": "Table",
+        "placeholder": "Select a table"
+      },
+      "alias": {
+        "label": "Alias",
+        "placeholder": "e.g., p"
+      },
+      "joinType": {
+        "label": "Join type",
+        "options": {
+          "inner": "INNER JOIN",
+          "left": "LEFT JOIN",
+          "right": "RIGHT JOIN"
+        }
+      },
+      "onCondition": {
+        "label": "ON condition",
+        "placeholder": "e.g., t1.id = t2.order_id"
+      }
+    }
+  },
+  "batch": {
+    "config": {
+      "title": "Batch generation",
+      "databaseType": {
+        "label": "Database type"
+      },
+      "description": {
+        "title": "Generate multiple APIs in one go",
+        "body": "Select tables to generate a consistent set of APIs. You can adjust details after generation."
+      },
+      "selectTables": {
+        "label": "Select tables",
+        "selected": "{{selected}} / {{total}} selected",
+        "willGenerate": "Will generate API: {{name}}",
+        "apiNamePlaceholder": "API name"
+      }
+    },
+    "preview": {
+      "title": "Preview",
+      "ready": "Ready to generate {{count}} APIs",
+      "item": "{{apiName}} from {{table}}",
+      "hint": "The generator will create a draft for each API. Review and refine them after generation."
+    },
+    "sql": {
+      "title": "Generated SQL samples",
+      "subtitle": "Showing example SQL for {{databaseType}}.",
+      "tableLabel": "Table: {{table}}",
+      "more": "{{count}} more generated APIs not shown."
+    }
+  },
+  "params": {
+    "title": "Define parameters & response",
+    "actions": {
+      "autoGenerateSql": "Auto-generate SQL"
+    },
+    "table": {
+      "headers": {
+        "fieldName": "Field",
+        "type": "Type",
+        "asParam": "As param",
+        "required": "Required",
+        "asReturn": "As return",
+        "defaultValue": "Default value"
+      },
+      "defaultValue": {
+        "placeholder": "-"
+      }
+    }
+  },
+  "sql": {
+    "title": "SQL",
+    "tabs": {
+      "editor": "Editor",
+      "plan": "Query plan"
+    },
+    "editor": {
+      "placeholder": "Write your query here..."
+    },
+    "actions": {
+      "format": "Format",
+      "syntaxCheck": "Syntax check",
+      "runTest": "Run test"
+    },
+    "plan": {
+      "text": "Estimated performance score: {{score}}/100"
+    },
+    "optimization": {
+      "title": "Optimization suggestions",
+      "warnings": {
+        "addIndex": "Consider adding an index on `{{field}}`.",
+        "largeResult": "The result set may be large; add filters or pagination."
+      }
+    },
+    "comments": {
+      "injectPoint": "Injection point for dynamic conditions",
+      "pagination": "Pagination",
+      "clickhouseSettings": "ClickHouse execution settings",
+      "maxComputePagination": "Pagination (MaxCompute)"
+    }
+  },
+  "publish": {
+    "title": "Publish",
+    "authType": {
+      "label": "Authentication",
+      "options": {
+        "apiKey": "API Key",
+        "oauth2": "OAuth 2.0",
+        "none": "No auth"
+      }
+    },
+    "domain": {
+      "label": "Domain",
+      "placeholder": "Select a domain"
+    },
+    "qpsLimit": {
+      "label": "QPS limit",
+      "placeholder": "e.g., 100",
+      "hint": "Rate limit per client/API key."
+    },
+    "security": {
+      "title": "Security checks",
+      "status": {
+        "pass": "Pass",
+        "applied": "Applied",
+        "configured": "Configured",
+        "enabled": "Enabled"
+      },
+      "items": {
+        "sqlInjection": "SQL injection protection: {{status}}",
+        "schema": "Schema validation: {{status}}",
+        "performanceScore": "Performance score: {{score}}/100",
+        "masking": "Sensitive data masking: {{status}}",
+        "pagination": "Pagination defaults: {{status}}",
+        "injectParameterized": "Parameterized injection: {{status}}",
+        "batchCount": "APIs to generate: {{count}}"
+      }
+    }
+  },
+  "nav": {
+    "prev": "Previous",
+    "next": "Next",
+    "submit": "Publish API",
+    "submitBatch": "Generate {{count}} APIs"
+  },
+  "toast": {
+    "errors": {
+      "contextIncomplete": "Dataset context is incomplete. Please reselect the dataset.",
+      "noDatasetFields": "No fields found in the selected dataset."
+    }
+  }
+}

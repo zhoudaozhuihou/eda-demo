@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Header } from './components/Header';
-import { Sidebar } from './components/Sidebar';
-import { Dashboard } from './components/Dashboard';
-import { Datasets } from './components/Datasets';
-import { APIBuilder, type APIBuilderContext } from './components/APIBuilder';
-import { APICatalog } from './components/APICatalog';
-import { Approval } from './components/Approval';
-import { Management } from './components/Management';
-import { Settings } from './components/Settings';
+import { Header } from '@/app/components/Header';
+import { Sidebar } from '@/app/components/Sidebar';
+import { Dashboard } from '@/features/dashboard/Dashboard';
+import { Datasets } from '@/features/datasets/Datasets';
+import { APIBuilder, type APIBuilderContext } from '@/features/api-builder/APIBuilder';
+import { APICatalog } from '@/features/api-catalog/APICatalog';
+import { Approval } from '@/features/approval/Approval';
+import { Management } from '@/features/management/Management';
+import { Settings } from '@/features/settings/Settings';
 import { Toaster } from './components/ui/sonner';
+import i18n, { setAppLanguage } from '@/i18n';
+import { getLanguageFromPathname, stripLanguagePrefix, withLanguagePrefix } from '@/i18n/routing';
 
 export default function App() {
   const [activeView, setActiveView] = useState('dashboard');
@@ -16,6 +18,20 @@ export default function App() {
   const [apiBuilderContext, setApiBuilderContext] = useState<APIBuilderContext | null>(null);
 
   useEffect(() => {
+    const syncFromLocation = () => {
+      const pathLang = getLanguageFromPathname(window.location.pathname);
+      if (pathLang && pathLang !== i18n.language) {
+        void setAppLanguage(pathLang);
+      }
+
+      const stripped = stripLanguagePrefix(window.location.pathname);
+      const parts = stripped.split('/').filter(Boolean);
+      const nextView = parts[0] || 'dashboard';
+      setActiveView(nextView);
+    };
+
+    syncFromLocation();
+
     const onNavigate = (e: Event) => {
       const evt = e as CustomEvent<{ view?: string; apiBuilderContext?: APIBuilderContext }>;
       const view = evt.detail?.view;
@@ -24,10 +40,15 @@ export default function App() {
         setApiBuilderContext(evt.detail?.apiBuilderContext ?? null);
       }
       setActiveView(view);
+      window.history.pushState(null, '', withLanguagePrefix(`/${view}`, i18n.language as 'en-US' | 'zh-CN'));
     };
 
     window.addEventListener('eda:navigate', onNavigate as EventListener);
-    return () => window.removeEventListener('eda:navigate', onNavigate as EventListener);
+    window.addEventListener('popstate', syncFromLocation);
+    return () => {
+      window.removeEventListener('eda:navigate', onNavigate as EventListener);
+      window.removeEventListener('popstate', syncFromLocation);
+    };
   }, []);
 
   const renderContent = () => {
@@ -57,7 +78,10 @@ export default function App() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar 
           activeView={activeView} 
-          onViewChange={setActiveView}
+          onViewChange={(view) => {
+            setActiveView(view);
+            window.history.pushState(null, '', withLanguagePrefix(`/${view}`, i18n.language as 'en-US' | 'zh-CN'));
+          }}
           isCollapsed={isSidebarCollapsed}
         />
         <main className="flex-1 overflow-auto">

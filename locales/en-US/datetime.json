@@ -1,0 +1,11 @@
+{
+  "date": {
+    "short": "{{value, datetime}}"
+  },
+  "number": {
+    "compact": "{{value, number}}"
+  },
+  "currency": {
+    "cny": "{{value, currency}}"
+  }
+}

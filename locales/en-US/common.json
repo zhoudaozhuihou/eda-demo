@@ -1,0 +1,38 @@
+{
+  "app": {
+    "name": "EDA Platform",
+    "edition": "Enterprise"
+  },
+  "language": {
+    "label": "Language",
+    "zhCN": "简体中文",
+    "enUS": "English"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "datasets": "Datasets",
+    "apiBuilder": "API Builder",
+    "apiCatalog": "API Catalog",
+    "approval": "Approval",
+    "management": "Management",
+    "settings": "Settings"
+  },
+  "footer": {
+    "version": "v{{version}}",
+    "copyright": "© {{year}} EDA"
+  },
+  "sidebar": {
+    "title": "Enterprise Data API Platform",
+    "subtitle": "Connections · Datasets · APIs"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{{count}} minute ago",
+    "minutesAgo_plural": "{{count}} minutes ago",
+    "hoursAgo": "{{count}} hour ago",
+    "hoursAgo_plural": "{{count}} hours ago"
+  },
+  "a11y": {
+    "toggleSidebar": "Toggle sidebar"
+  }
+}

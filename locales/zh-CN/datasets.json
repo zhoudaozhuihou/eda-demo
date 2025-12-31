@@ -1,0 +1,193 @@
+{
+  "title": "数据集管理",
+  "subtitle": "查看和管理数据表元数据",
+  "actions": {
+    "backToList": "返回列表",
+    "clear": "清除",
+    "cancel": "取消",
+    "close": "关闭",
+    "create": "创建",
+    "createApi": "创建 API",
+    "createDataset": "创建数据集",
+    "createNewApi": "创建新 API",
+    "editDataset": "编辑数据集",
+    "editFields": "编辑字段",
+    "save": "保存",
+    "viewDetail": "查看详情 →",
+    "viewHistory": "变更历史",
+    "viewLineage": "查看血缘关系"
+  },
+  "search": {
+    "datasetsPlaceholder": "搜索数据集名称或别名...",
+    "fieldsPlaceholder": "搜索字段名/别名/类型/描述"
+  },
+  "categories": {
+    "title": "数据集分类",
+    "all": "全部数据集"
+  },
+  "hotTags": {
+    "title": "热门标签"
+  },
+  "labels": {
+    "actions": "操作",
+    "basicInfo": "基本信息",
+    "createdAt": "创建时间",
+    "createdBy": "创建人",
+    "datasetAlias": "数据集别名",
+    "datasetNameEn": "数据集名称（英文）",
+    "description": "描述",
+    "descriptionOptional": "描述（可选）",
+    "domain": "业务域",
+    "fieldsCount": "字段数量",
+    "fieldsList": "字段列表",
+    "lastUpdate": "最后更新",
+    "lastUpdateInline": "最后更新: {{date}}",
+    "maskedFields": "脱敏字段",
+    "metadata": "元数据",
+    "methodGet": "GET",
+    "perPage": "每页",
+    "relatedApis": "关联 API ({{count}})",
+    "rowCount": "数据量",
+    "source": "数据源",
+    "tags": "标签",
+    "tagsComma": "标签（逗号分隔）",
+    "updatedAt": "更新时间",
+    "updatedBy": "更新人"
+  },
+  "fields": {
+    "onlyKeyFields": "仅关键字段",
+    "columns": {
+      "name": "字段名",
+      "type": "类型",
+      "alias": "别名",
+      "masked": "脱敏",
+      "description": "描述"
+    },
+    "groups": {
+      "key": "关键字段",
+      "sensitive": "敏感字段",
+      "time": "时间字段",
+      "money": "金额字段",
+      "business": "业务字段",
+      "search": "搜索结果"
+    }
+  },
+  "counts": {
+    "total": "共 {{count}} 条"
+  },
+  "empty": {
+    "noMatch": "没有找到匹配的数据集",
+    "noRelatedApis": "暂无关联 API"
+  },
+  "dialogs": {
+    "create": "创建数据集",
+    "edit": "编辑数据集",
+    "editFields": "编辑字段",
+    "history": "变更历史",
+    "lineage": "血缘关系"
+  },
+  "form": {
+    "labels": {
+      "alias": "数据集别名",
+      "description": "描述（可选）",
+      "domain": "业务域",
+      "fields": "字段数",
+      "masked": "脱敏字段",
+      "name": "数据集名称（英文）",
+      "rowCount": "数据量",
+      "source": "数据源",
+      "tags": "标签（逗号分隔）"
+    },
+    "placeholders": {
+      "alias": "例：用户订单表",
+      "description": "简单描述用途与口径",
+      "name": "例：user_orders",
+      "rowCount": "例：1.2M",
+      "source": "例：生产数据库",
+      "tags": "例：核心,交易"
+    },
+    "errors": {
+      "aliasRequired": "请输入数据集别名",
+      "fieldsMin": "字段数必须大于 0",
+      "fixFirst": "请先修正表单错误",
+      "maskedMax": "脱敏字段不能超过字段总数",
+      "maskedMin": "脱敏字段不能小于 0",
+      "nameInvalid": "名称仅允许字母/数字/下划线，且需以字母开头",
+      "nameRequired": "请输入数据集名称（英文）",
+      "rowCountRequired": "请输入数据量",
+      "sourceRequired": "请输入数据源"
+    }
+  },
+  "toast": {
+    "copied": "已复制：{{value}}",
+    "created": "数据集已创建",
+    "fieldSaved": "字段已保存",
+    "updated": "数据集已更新"
+  },
+  "permissions": {
+    "noApiBuilder": "当前账号无 API 构建权限",
+    "noManage": "当前账号无数据集管理权限"
+  },
+  "pagination": {
+    "perPageOption": "{{count}} 条"
+  },
+  "lineage": {
+    "upstream": "上游",
+    "current": "当前",
+    "downstream": "下游",
+    "noDownstream": "暂无下游"
+  },
+  "domains": {
+    "订单域": "订单域",
+    "商品域": "商品域",
+    "用户域": "用户域",
+    "库存域": "库存域"
+  },
+  "tags": {
+    "uncategorized": "未分类",
+    "核心": "核心",
+    "交易": "交易",
+    "基础": "基础",
+    "SKU": "SKU",
+    "敏感": "敏感",
+    "PII": "PII",
+    "实时": "实时"
+  },
+  "seed": {
+    "generated": {
+      "alias": "字段{{index}}",
+      "description": "字段说明 {{index}}"
+    },
+    "users": {
+      "zhangSan": "张三",
+      "liSi": "李四"
+    },
+    "fields": {
+      "user_id": { "alias": "用户ID", "description": "用户唯一标识" },
+      "order_id": { "alias": "订单ID", "description": "订单唯一标识" },
+      "order_date": { "alias": "下单时间", "description": "订单创建时间" },
+      "total_amount": { "alias": "订单金额", "description": "订单总金额" },
+      "status": { "alias": "状态", "description": "当前状态" },
+      "sku_id": { "alias": "SKU", "description": "商品SKU标识" },
+      "product_id": { "alias": "商品ID", "description": "商品唯一标识" },
+      "price": { "alias": "价格", "description": "单价" },
+      "stock": { "alias": "库存", "description": "当前库存" },
+      "email": { "alias": "邮箱", "description": "用户邮箱" },
+      "phone": { "alias": "手机号", "description": "用户手机号" },
+      "created_at": { "alias": "创建时间", "description": "记录创建时间" },
+      "updated_at": { "alias": "更新时间", "description": "记录更新时间" }
+    }
+  },
+  "history": {
+    "actions": {
+      "fieldDescriptionUpdated": "字段描述更新",
+      "maskRuleUpdated": "脱敏规则调整",
+      "datasetCreated": "创建数据集"
+    },
+    "details": {
+      "addedSensitiveDescription": "补充了敏感字段说明",
+      "addedPhoneEmailMasking": "新增 phone/email 脱敏",
+      "initializedMetadataAndTags": "初始化元数据与标签"
+    }
+  }
+}

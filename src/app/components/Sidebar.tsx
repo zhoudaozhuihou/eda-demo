@@ -1,4 +1,5 @@
 import { Database, Layers, Zap, BookOpen, LayoutDashboard, Settings, Users, CheckSquare } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from './ui/utils';
 
 interface SidebarProps {
@@ -7,17 +8,18 @@ interface SidebarProps {
   isCollapsed: boolean;
 }
 
-const menuItems = [
-  { id: 'dashboard', label: '仪表板', icon: LayoutDashboard },
-  { id: 'datasets', label: '数据集', icon: Layers },
-  { id: 'api-builder', label: 'API 构建器', icon: Zap },
-  { id: 'api-catalog', label: 'API 目录', icon: BookOpen },
-  { id: 'approval', label: '审核中心', icon: CheckSquare },
-  { id: 'management', label: '管理中心', icon: Users },
-  { id: 'settings', label: '系统设置', icon: Settings },
-];
-
 export function Sidebar({ activeView, onViewChange, isCollapsed }: SidebarProps) {
+  const { t } = useTranslation('common');
+  const menuItems = [
+    { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
+    { id: 'datasets', label: t('nav.datasets'), icon: Layers },
+    { id: 'api-builder', label: t('nav.apiBuilder'), icon: Zap },
+    { id: 'api-catalog', label: t('nav.apiCatalog'), icon: BookOpen },
+    { id: 'approval', label: t('nav.approval'), icon: CheckSquare },
+    { id: 'management', label: t('nav.management'), icon: Users },
+    { id: 'settings', label: t('nav.settings'), icon: Settings },
+  ];
+
   return (
     <div 
       className={cn(
@@ -32,8 +34,8 @@ export function Sidebar({ activeView, onViewChange, isCollapsed }: SidebarProps)
               <Database className="size-5 text-primary-foreground" />
             </div>
             <div>
-              <p className="text-sm">企业数据API平台</p>
-              <p className="text-xs text-muted-foreground">连接 · 数据集 · API</p>
+              <p className="text-sm">{t('sidebar.title')}</p>
+              <p className="text-xs text-muted-foreground">{t('sidebar.subtitle')}</p>
             </div>
           </div>
         </div>
@@ -74,13 +76,13 @@ export function Sidebar({ activeView, onViewChange, isCollapsed }: SidebarProps)
       
       {!isCollapsed && (
         <div className="p-4 border-t text-xs text-muted-foreground">
-          v1.0.0 | © 2025 EDA
+          {t('footer.version', { version: '1.0.0' })} | {t('footer.copyright', { year: 2025 })}
         </div>
       )}
       
       {isCollapsed && (
         <div className="p-4 border-t text-center text-xs text-muted-foreground">
-          v1.0
+          {t('footer.version', { version: '1.0' })}
         </div>
       )}
     </div>

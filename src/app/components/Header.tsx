@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTheme } from 'next-themes';
+import { useTranslation } from 'react-i18next';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { 
@@ -10,9 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from './ui/dropdown-menu';
-import { Menu, Globe, User, LogOut, Settings, HelpCircle, Bell, Sun, Moon } from 'lucide-react';
+import { Menu, User, LogOut, Settings, HelpCircle, Bell, Sun, Moon } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { formatDateTime } from '@/i18n/format';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -22,8 +25,12 @@ type NotificationLevel = 'info' | 'success' | 'warning' | 'error';
 
 type NotificationItem = {
   id: string;
-  title: string;
-  content: string;
+  titleKey?: string;
+  contentKey?: string;
+  titleParams?: Record<string, unknown>;
+  contentParams?: Record<string, unknown>;
+  title?: string;
+  content?: string;
   createdAt: number;
   read: boolean;
   level: NotificationLevel;
@@ -32,11 +39,12 @@ type NotificationItem = {
 const notificationStorageKey = 'eda-platform-notifications';
 
 export function Header({ onToggleSidebar }: HeaderProps) {
-  const [language, setLanguage] = useState('zh-CN');
+  const { t, i18n } = useTranslation(['common', 'app']);
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [notificationHistoryOpen, setNotificationHistoryOpen] = useState(false);
   const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread'>('all');
+  const [now, setNow] = useState(0);
 
   const [notificationItems, setNotificationItems] = useState<NotificationItem[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -46,24 +54,27 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         return [
           {
             id: 'seed-1',
-            title: 'API 发布成功',
-            content: 'getUserOrders 已发布到生产环境',
+            titleKey: 'app:notifications.seed.publishSuccess.title',
+            contentKey: 'app:notifications.seed.publishSuccess.content',
+            contentParams: { apiName: 'getUserOrders' },
             createdAt: Date.now() - 1000 * 60 * 5,
             read: false,
             level: 'success',
           },
           {
             id: 'seed-2',
-            title: '性能预警',
-            content: 'searchProducts 平均延迟升高至 220ms',
+            titleKey: 'app:notifications.seed.performanceWarning.title',
+            contentKey: 'app:notifications.seed.performanceWarning.content',
+            contentParams: { apiName: 'searchProducts', latency: 220 },
             createdAt: Date.now() - 1000 * 60 * 30,
             read: false,
             level: 'warning',
           },
           {
             id: 'seed-3',
-            title: '安全提醒',
-            content: '检测到异常访问：IP 203.0.113.18',
+            titleKey: 'app:notifications.seed.securityAlert.title',
+            contentKey: 'app:notifications.seed.securityAlert.content',
+            contentParams: { ip: '203.0.113.18' },
             createdAt: Date.now() - 1000 * 60 * 90,
             read: true,
             level: 'error',
@@ -81,11 +92,12 @@ export function Header({ onToggleSidebar }: HeaderProps) {
   const unreadCount = useMemo(() => notificationItems.filter((n) => !n.read).length, [notificationItems]);
 
   const formatTime = (ts: number) => {
-    const delta = Date.now() - ts;
-    if (delta < 60_000) return '刚刚';
-    if (delta < 60 * 60_000) return `${Math.floor(delta / 60_000)} 分钟前`;
-    if (delta < 24 * 60 * 60_000) return `${Math.floor(delta / (60 * 60_000))} 小时前`;
-    return new Date(ts).toLocaleString('zh-CN');
+    if (!now) return formatDateTime(ts, undefined, i18n.language);
+    const delta = now - ts;
+    if (delta < 60_000) return t('time.justNow');
+    if (delta < 60 * 60_000) return t('time.minutesAgo', { count: Math.floor(delta / 60_000) });
+    if (delta < 24 * 60 * 60_000) return t('time.hoursAgo', { count: Math.floor(delta / (60 * 60_000)) });
+    return formatDateTime(ts, undefined, i18n.language);
   };
 
   const createId = () => {
@@ -119,6 +131,15 @@ export function Header({ onToggleSidebar }: HeaderProps) {
   }, [notificationItems]);
 
   useEffect(() => {
+    const raf = window.requestAnimationFrame(() => setNow(Date.now()));
+    const interval = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
     const onPush = (event: Event) => {
       const ce = event as CustomEvent<Partial<Pick<NotificationItem, 'title' | 'content' | 'level'>>>;
       const detail = ce.detail ?? {};
@@ -136,9 +157,24 @@ export function Header({ onToggleSidebar }: HeaderProps) {
   useEffect(() => {
     const interval = window.setInterval(() => {
       const candidates: Array<Omit<NotificationItem, 'id' | 'createdAt' | 'read'>> = [
-        { title: '调用量波动', content: 'getProductInfo 今日调用量上涨 18%', level: 'info' },
-        { title: '审核提醒', content: '有 2 个 API 等待审批', level: 'warning' },
-        { title: '连接健康检查', content: 'ClickHouse-分析库 健康检查通过', level: 'success' },
+        {
+          titleKey: 'app:notifications.seed.trafficSpike.title',
+          contentKey: 'app:notifications.seed.trafficSpike.content',
+          contentParams: { apiName: 'getProductInfo', percent: 18 },
+          level: 'info',
+        },
+        {
+          titleKey: 'app:notifications.seed.approvalReminder.title',
+          contentKey: 'app:notifications.seed.approvalReminder.content',
+          contentParams: { count: 2 },
+          level: 'warning',
+        },
+        {
+          titleKey: 'app:notifications.seed.healthCheck.title',
+          contentKey: 'app:notifications.seed.healthCheck.content',
+          contentParams: { name: 'ClickHouse-分析库' },
+          level: 'success',
+        },
       ];
       const pick = candidates[Math.floor(Math.random() * candidates.length)];
       pushNotification(pick);
@@ -152,18 +188,26 @@ export function Header({ onToggleSidebar }: HeaderProps) {
     [notificationItems, notificationFilter],
   );
 
+  const resolveText = (item: NotificationItem, field: 'title' | 'content') => {
+    const key = field === 'title' ? item.titleKey : item.contentKey;
+    const params = field === 'title' ? item.titleParams : item.contentParams;
+    if (key) return t(key, params);
+    const raw = field === 'title' ? item.title : item.content;
+    return raw ?? '';
+  };
+
   return (
     <header className="border-b bg-card h-16 flex items-center px-6 sticky top-0 z-50">
       <div className="flex items-center gap-4 flex-1">
         {/* Toggle Sidebar Button */}
-        <Button variant="ghost" size="sm" onClick={onToggleSidebar}>
+        <Button variant="ghost" size="sm" onClick={onToggleSidebar} aria-label={t('a11y.toggleSidebar')}>
           <Menu className="size-5" />
         </Button>
 
         {/* Product Name */}
         <div className="flex items-center gap-2">
-          <h1 className="text-lg">EDA Platform</h1>
-          <Badge variant="outline" className="text-xs">企业版</Badge>
+          <h1 className="text-lg">{t('app.name')}</h1>
+          <Badge variant="outline" className="text-xs">{t('app.edition')}</Badge>
         </div>
 
         {/* Divider */}
@@ -176,11 +220,11 @@ export function Header({ onToggleSidebar }: HeaderProps) {
               <div className="size-6 rounded bg-primary/10 flex items-center justify-center text-xs text-primary">
                 T
               </div>
-              <span>技术团队</span>
+              <span>{t('app:team.tech')}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuLabel>切换团队</DropdownMenuLabel>
+            <DropdownMenuLabel>{t('app:team.switch')}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <div className="flex items-center gap-2">
@@ -188,8 +232,8 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                   T
                 </div>
                 <div>
-                  <div>技术团队</div>
-                  <div className="text-xs text-muted-foreground">当前团队</div>
+                  <div>{t('app:team.tech')}</div>
+                  <div className="text-xs text-muted-foreground">{t('app:team.current')}</div>
                 </div>
               </div>
             </DropdownMenuItem>
@@ -199,8 +243,8 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                   P
                 </div>
                 <div>
-                  <div>产品团队</div>
-                  <div className="text-xs text-muted-foreground">3 成员</div>
+                  <div>{t('app:team.product')}</div>
+                  <div className="text-xs text-muted-foreground">{t('app:team.members', { count: 3 })}</div>
                 </div>
               </div>
             </DropdownMenuItem>
@@ -210,8 +254,8 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                   D
                 </div>
                 <div>
-                  <div>数据团队</div>
-                  <div className="text-xs text-muted-foreground">8 成员</div>
+                  <div>{t('app:team.data')}</div>
+                  <div className="text-xs text-muted-foreground">{t('app:team.members', { count: 8 })}</div>
                 </div>
               </div>
             </DropdownMenuItem>
@@ -227,14 +271,14 @@ export function Header({ onToggleSidebar }: HeaderProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuLabel>服务账号</DropdownMenuLabel>
+            <DropdownMenuLabel>{t('app:serviceAccount.label')}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <div className="flex items-center gap-2">
                 <div className="size-2 rounded-full bg-green-500" />
                 <div>
                   <div className="font-mono text-sm">prod-service-01</div>
-                  <div className="text-xs text-muted-foreground">生产环境</div>
+                  <div className="text-xs text-muted-foreground">{t('app:serviceAccount.prod')}</div>
                 </div>
               </div>
             </DropdownMenuItem>
@@ -243,7 +287,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                 <div className="size-2 rounded-full bg-yellow-500" />
                 <div>
                   <div className="font-mono text-sm">test-service-02</div>
-                  <div className="text-xs text-muted-foreground">测试环境</div>
+                  <div className="text-xs text-muted-foreground">{t('app:serviceAccount.test')}</div>
                 </div>
               </div>
             </DropdownMenuItem>
@@ -252,13 +296,13 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                 <div className="size-2 rounded-full bg-blue-500" />
                 <div>
                   <div className="font-mono text-sm">dev-service-03</div>
-                  <div className="text-xs text-muted-foreground">开发环境</div>
+                  <div className="text-xs text-muted-foreground">{t('app:serviceAccount.dev')}</div>
                 </div>
               </div>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-primary">
-              + 添加服务账号
+              {t('app:serviceAccount.add')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -266,55 +310,23 @@ export function Header({ onToggleSidebar }: HeaderProps) {
 
       {/* Right Side */}
       <div className="flex items-center gap-3">
-        {/* Language Switcher */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="gap-2">
-              <Globe className="size-4" />
-              <span className="text-sm">
-                {language === 'zh-CN' ? '简体中文' : 'English'}
-              </span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>选择语言</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setLanguage('zh-CN')}>
-              <div className="flex items-center justify-between w-full">
-                <span>简体中文</span>
-                {language === 'zh-CN' && <span>✓</span>}
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setLanguage('en-US')}>
-              <div className="flex items-center justify-between w-full">
-                <span>English</span>
-                {language === 'en-US' && <span>✓</span>}
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setLanguage('ja-JP')}>
-              <div className="flex items-center justify-between w-full">
-                <span>日本語</span>
-                {language === 'ja-JP' && <span>✓</span>}
-              </div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <LanguageSwitcher />
 
         <Button
           variant="ghost"
           size="sm"
           className="gap-2"
-          aria-label="切换白天/黑夜主题"
+          aria-label={t('app:theme.toggle')}
           onClick={() => setTheme(isDark ? 'light' : 'dark')}
         >
           {isDark ? <Moon className="size-4" /> : <Sun className="size-4" />}
-          <span className="text-sm">{isDark ? '黑夜' : '白天'}</span>
+          <span className="text-sm">{isDark ? t('app:theme.dark') : t('app:theme.light')}</span>
         </Button>
 
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="relative" aria-label="通知">
+            <Button variant="ghost" size="sm" className="relative" aria-label={t('app:notifications.title')}>
               <Bell className="size-5" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 size-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
@@ -326,7 +338,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           <DropdownMenuContent align="end" className="w-[360px]">
             <DropdownMenuLabel>
               <div className="flex items-center justify-between gap-3">
-                <div>通知</div>
+                <div>{t('app:notifications.title')}</div>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -338,7 +350,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                     }}
                     disabled={unreadCount === 0}
                   >
-                    全部已读
+                    {t('app:notifications.markAllRead')}
                   </Button>
                   <Button
                     variant="outline"
@@ -349,14 +361,14 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                       setNotificationHistoryOpen(true);
                     }}
                   >
-                    历史
+                    {t('app:notifications.history')}
                   </Button>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             {dropdownItems.length === 0 ? (
-              <div className="p-4 text-sm text-muted-foreground">暂无通知</div>
+              <div className="p-4 text-sm text-muted-foreground">{t('app:notifications.empty')}</div>
             ) : (
               <div className="max-h-[360px] overflow-auto">
                 {dropdownItems.map((n) => (
@@ -375,10 +387,10 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <div className={n.read ? 'text-muted-foreground' : undefined}>{n.title}</div>
+                          <div className={n.read ? 'text-muted-foreground' : undefined}>{resolveText(n, 'title')}</div>
                           <div className="text-xs text-muted-foreground">{formatTime(n.createdAt)}</div>
                         </div>
-                        <div className="text-xs text-muted-foreground line-clamp-2">{n.content}</div>
+                        <div className="text-xs text-muted-foreground line-clamp-2">{resolveText(n, 'content')}</div>
                       </div>
                     </div>
                   </DropdownMenuItem>
@@ -391,7 +403,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
               onClick={() => setNotificationHistoryOpen(true)}
               className="justify-center text-sm text-primary"
             >
-              查看全部
+              {t('app:notifications.viewAll')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -409,7 +421,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
               </Avatar>
               <div className="text-left">
                 <div className="text-sm">张三</div>
-                <div className="text-xs text-muted-foreground">管理员</div>
+                <div className="text-xs text-muted-foreground">{t('app:user.roles.admin')}</div>
               </div>
             </Button>
           </DropdownMenuTrigger>
@@ -431,20 +443,20 @@ export function Header({ onToggleSidebar }: HeaderProps) {
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <User className="size-4 mr-2" />
-              个人资料
+              {t('app:userMenu.profile')}
             </DropdownMenuItem>
             <DropdownMenuItem>
               <Settings className="size-4 mr-2" />
-              账号设置
+              {t('app:userMenu.settings')}
             </DropdownMenuItem>
             <DropdownMenuItem>
               <HelpCircle className="size-4 mr-2" />
-              帮助中心
+              {t('app:userMenu.help')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-red-600">
               <LogOut className="size-4 mr-2" />
-              退出登录
+              {t('app:userMenu.logout')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -453,7 +465,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
       <Dialog open={notificationHistoryOpen} onOpenChange={setNotificationHistoryOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>通知历史</DialogTitle>
+            <DialogTitle>{t('app:notifications.historyTitle')}</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -462,23 +474,23 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                 variant={notificationFilter === 'all' ? 'default' : 'outline'}
                 onClick={() => setNotificationFilter('all')}
               >
-                全部
+                {t('app:notifications.filterAll')}
               </Button>
               <Button
                 size="sm"
                 variant={notificationFilter === 'unread' ? 'default' : 'outline'}
                 onClick={() => setNotificationFilter('unread')}
               >
-                未读
+                {t('app:notifications.filterUnread')}
               </Button>
             </div>
             <Button size="sm" variant="outline" onClick={markAllRead} disabled={unreadCount === 0}>
-              全部已读
+              {t('app:notifications.markAllRead')}
             </Button>
           </div>
           <div className="max-h-[520px] overflow-auto border rounded-lg">
             {historyItems.length === 0 ? (
-              <div className="p-6 text-sm text-muted-foreground text-center">暂无通知</div>
+              <div className="p-6 text-sm text-muted-foreground text-center">{t('app:notifications.empty')}</div>
             ) : (
               <div className="divide-y">
                 {historyItems.map((n) => (
@@ -491,15 +503,15 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <div className="truncate">{n.title}</div>
-                          {!n.read && <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">未读</span>}
+                          <div className="truncate">{resolveText(n, 'title')}</div>
+                          {!n.read && <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">{t('app:notifications.unreadBadge')}</span>}
                           {n.level !== 'info' && (
                             <span className="text-xs px-2 py-0.5 rounded border text-muted-foreground">
-                              {n.level === 'success' ? '成功' : n.level === 'warning' ? '警告' : '错误'}
+                              {t(`app:notifications.level.${n.level}`)}
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-muted-foreground mt-1">{n.content}</div>
+                        <div className="text-sm text-muted-foreground mt-1">{resolveText(n, 'content')}</div>
                       </div>
                       <div className="text-xs text-muted-foreground whitespace-nowrap">{formatTime(n.createdAt)}</div>
                     </div>
@@ -510,7 +522,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNotificationHistoryOpen(false)}>
-              关闭
+              {t('app:actions.close')}
             </Button>
           </DialogFooter>
         </DialogContent>

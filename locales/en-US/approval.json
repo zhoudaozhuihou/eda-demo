@@ -1,0 +1,112 @@
+{
+  "page": {
+    "title": "Approval Center",
+    "subtitle": "Manage API lifecycle approval workflows"
+  },
+  "stats": {
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected"
+  },
+  "tabs": {
+    "pending": "Pending ({{count}})",
+    "approved": "Approved ({{count}})",
+    "rejected": "Rejected ({{count}})",
+    "all": "All ({{count}})"
+  },
+  "search": {
+    "placeholder": "Search by API name or requester..."
+  },
+  "selection": {
+    "selectAll": "Select all",
+    "invert": "Invert",
+    "selected": "Selected {{selected}} / {{total}}"
+  },
+  "actions": {
+    "batchReject": "Batch reject",
+    "batchApprove": "Batch approve",
+    "viewDetail": "View details",
+    "cancel": "Cancel",
+    "reject": "Reject",
+    "approve": "Approve"
+  },
+  "pagination": {
+    "total": "Total {{count}}",
+    "perPage": "Per page",
+    "perPageCount": "{{count}} items"
+  },
+  "dialog": {
+    "title": "Approval details"
+  },
+  "workflow": {
+    "title": "Approval workflow",
+    "status": {
+      "inProgress": "In progress",
+      "completed": "Completed"
+    },
+    "steps": {
+      "submitRequest": "Submit request",
+      "platformReview": "Platform review"
+    },
+    "stepStatus": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    }
+  },
+  "labels": {
+    "approver": "Approver",
+    "time": "Time",
+    "comment": "Comment"
+  },
+  "detail": {
+    "requester": {
+      "label": "Requester"
+    },
+    "requestTime": {
+      "label": "Requested at"
+    },
+    "reason": {
+      "label": "Reason"
+    },
+    "details": {
+      "label": "Details"
+    },
+    "result": {
+      "label": "Review result",
+      "approver": "Reviewer",
+      "time": "Reviewed at"
+    },
+    "comment": {
+      "label": "Review comment",
+      "placeholder": "Enter a review comment (optional)"
+    }
+  },
+  "requestTypes": {
+    "publish": "Publish",
+    "update": "Update",
+    "deprecate": "Deprecate",
+    "delete": "Delete"
+  },
+  "statuses": {
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected"
+  },
+  "actors": {
+    "admin": "Admin"
+  },
+  "placeholders": {
+    "dash": "—"
+  },
+  "toasts": {
+    "approved": "Approved successfully",
+    "rejected": "Rejected successfully",
+    "batchApproved": "Batch approved: {{count}} items",
+    "batchRejected": "Batch rejected: {{count}} items",
+    "errors": {
+      "noPermission": "You do not have approval permissions for this account.",
+      "selectAtLeastOne": "Select at least one approval item first."
+    }
+  }
+}

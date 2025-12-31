@@ -1,0 +1,234 @@
+{
+  "categories": {
+    "all": "全部 API"
+  },
+  "toast": {
+    "copied": "已复制到剪贴板"
+  },
+  "pagination": {
+    "total": "共 {{count}} 条",
+    "perPage": "每页",
+    "perPageCount": "{{count}} 条"
+  },
+  "page": {
+    "sidebar": {
+      "categories": "API 分类",
+      "stats": "API 统计"
+    },
+    "stats": {
+      "activeApis": "活跃 API",
+      "callsToday": "今日总调用",
+      "avgLatency": "平均延迟"
+    },
+    "title": "API 目录",
+    "subtitle": "浏览和测试已发布的 API",
+    "actions": {
+      "exportDocs": "导出文档"
+    },
+    "search": {
+      "placeholder": "搜索 API 名称或描述..."
+    },
+    "list": {
+      "deprecated": "已弃用",
+      "viewDocs": "查看文档"
+    },
+    "metrics": {
+      "qps": "QPS",
+      "avgLatency": "平均延迟",
+      "callsToday": "今日调用",
+      "createdAt": "创建时间"
+    },
+    "empty": {
+      "noResults": "没有找到匹配的 API"
+    }
+  },
+  "authLabels": {
+    "oauth2": "OAuth2",
+    "apiKey": "API Key",
+    "auth": "认证"
+  },
+  "statusCodes": {
+    "200": {
+      "standardDescription": "请求成功。",
+      "scenario": "成功返回。"
+    },
+    "400": {
+      "standardDescription": "请求参数错误。",
+      "scenario": "参数校验失败。"
+    },
+    "401": {
+      "standardDescription": "未认证。",
+      "scenario": "缺少或无效的 {{authLabel}}。"
+    },
+    "403": {
+      "standardDescription": "无权限。",
+      "scenario": "已认证但无访问权限。"
+    },
+    "404": {
+      "standardDescription": "资源不存在。",
+      "scenario": "请求的资源未找到。"
+    },
+    "409": {
+      "standardDescription": "资源冲突。",
+      "scenario": "资源已存在或状态冲突。"
+    },
+    "422": {
+      "standardDescription": "无法处理的实体。",
+      "scenario": "业务规则校验失败。"
+    },
+    "429": {
+      "standardDescription": "请求过于频繁。",
+      "scenario": "触发限流。"
+    },
+    "500": {
+      "standardDescription": "服务器内部错误。",
+      "scenario": "发生未知错误。"
+    },
+    "503": {
+      "standardDescription": "服务不可用。",
+      "scenario": "服务暂时不可用。"
+    }
+  },
+  "doc": {
+    "params": {
+      "descriptions": {
+        "traceId": "请求追踪 ID（用于排查问题）",
+        "bizCode": "业务状态码",
+        "bizMessage": "业务提示信息",
+        "bizData": "业务数据",
+        "userId": "用户 ID",
+        "page": "页码，默认 {{default}}",
+        "pageSize": "每页条数，默认 {{default}}",
+        "total": "总记录数",
+        "pageNo": "当前页码",
+        "pageSizeOnly": "每页条数",
+        "orderList": "订单列表",
+        "orderId": "订单 ID",
+        "orderAmount": "订单金额",
+        "orderStatus": "订单状态",
+        "orderIdPath": "订单 ID（路径参数）",
+        "orderItems": "订单明细列表",
+        "productItems": "商品条目列表",
+        "skuId": "SKU ID",
+        "quantity": "数量",
+        "newOrderId": "新创建的订单 ID",
+        "paramHint": "参数 {{index}} 的说明",
+        "fieldHint": "字段 {{index}} 的说明"
+      }
+    },
+    "paramTable": {
+      "columns": {
+        "name": "参数名",
+        "type": "类型",
+        "required": "必填",
+        "location": "位置",
+        "value": "值",
+        "defaultValue": "默认值",
+        "description": "描述"
+      },
+      "validation": {
+        "required": "必填项",
+        "intOnly": "仅支持整数",
+        "numberOnly": "仅支持数字",
+        "boolOnly": "仅支持 true/false 或 1/0",
+        "datetimeOnly": "仅支持 ISO 或 YYYY-MM-DD[ HH:mm:ss]",
+        "jsonOnly": "请输入合法的 JSON",
+        "formatError": "格式错误"
+      },
+      "aria": {
+        "valueForParam": "为参数 {{name}} 输入值"
+      },
+      "onlyImportant": "仅显示重点参数",
+      "placeholders": {
+        "searchEditable": "搜索参数（可编辑）",
+        "searchReadonly": "搜索参数"
+      }
+    },
+    "required": {
+      "required": "必填",
+      "optional": "可选"
+    },
+    "hints": {
+      "example": "示例：",
+      "defaultValue": "默认值："
+    },
+    "groups": {
+      "searchResults": "搜索结果",
+      "Header": "请求头",
+      "Query": "查询参数",
+      "Body": "请求体",
+      "Path": "路径参数",
+      "Envelope": "外层包装",
+      "Data": "数据",
+      "Item": "条目",
+      "Extra": "扩展"
+    },
+    "responseTree": {
+      "columns": {
+        "name": "字段名",
+        "type": "类型",
+        "required": "必填",
+        "example": "示例",
+        "description": "描述"
+      },
+      "aria": {
+        "expandNode": "展开 {{path}}",
+        "collapseNode": "折叠 {{path}}"
+      },
+      "onlyRequired": "仅必填",
+      "placeholders": {
+        "search": "搜索字段名/类型/描述"
+      }
+    },
+    "statusCodes": {
+      "title": "状态码",
+      "families": {
+        "all": "全部",
+        "2xx": "2xx 成功",
+        "4xx": "4xx 客户端错误",
+        "5xx": "5xx 服务端错误"
+      },
+      "placeholders": {
+        "search": "搜索状态码/描述/场景"
+      },
+      "labels": {
+        "scenario": "业务场景："
+      },
+      "actions": {
+        "expandExample": "展开示例",
+        "collapseExample": "收起示例"
+      }
+    },
+    "sections": {
+      "basicInfo": "基本信息",
+      "requestPath": "请求路径",
+      "requestParams": "请求参数",
+      "responseParams": "响应参数",
+      "successResponseExample": "成功响应示例",
+      "onlineTest": "在线测试"
+    },
+    "labels": {
+      "requestMethod": "请求方法：",
+      "version": "版本：",
+      "authType": "认证方式：",
+      "domain": "业务域："
+    },
+    "tabs": {
+      "request": "请求参数",
+      "response": "响应参数",
+      "status": "状态码",
+      "example": "示例与测试"
+    },
+    "actions": {
+      "openTestTool": "打开测试工具"
+    },
+    "dialog": {
+      "defaultTitle": "API 文档",
+      "apiMissing": "API 不存在或已被移除",
+      "actions": {
+        "resetSize": "重置尺寸",
+        "backToList": "返回列表"
+      }
+    }
+  }
+}

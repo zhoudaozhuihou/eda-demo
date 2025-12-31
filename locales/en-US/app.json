@@ -1,0 +1,79 @@
+{
+  "team": {
+    "switch": "Switch team",
+    "current": "Current",
+    "tech": "Engineering",
+    "product": "Product",
+    "data": "Data",
+    "members": "{{count}} member",
+    "members_plural": "{{count}} members"
+  },
+  "serviceAccount": {
+    "label": "Service account",
+    "prod": "Production",
+    "test": "Test",
+    "dev": "Development",
+    "add": "+ Add service account"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "viewAll": "View all",
+    "markAllRead": "Mark all as read",
+    "history": "History",
+    "historyTitle": "Notification history",
+    "filterAll": "All",
+    "filterUnread": "Unread",
+    "empty": "No notifications",
+    "unreadBadge": "Unread",
+    "level": {
+      "success": "Success",
+      "warning": "Warning",
+      "error": "Error"
+    },
+    "seed": {
+      "publishSuccess": {
+        "title": "API published",
+        "content": "{{apiName}} was published to production"
+      },
+      "performanceWarning": {
+        "title": "Performance warning",
+        "content": "{{apiName}} average latency increased to {{latency}}ms"
+      },
+      "securityAlert": {
+        "title": "Security alert",
+        "content": "Suspicious access detected: IP {{ip}}"
+      },
+      "trafficSpike": {
+        "title": "Traffic spike",
+        "content": "{{apiName}} traffic is up {{percent}}% today"
+      },
+      "approvalReminder": {
+        "title": "Approval reminder",
+        "content": "{{count}} APIs are waiting for approval"
+      },
+      "healthCheck": {
+        "title": "Health check",
+        "content": "{{name}} health check passed"
+      }
+    }
+  },
+  "theme": {
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "actions": {
+    "close": "Close"
+  },
+  "userMenu": {
+    "profile": "Profile",
+    "settings": "Settings",
+    "help": "Help",
+    "logout": "Log out"
+  },
+  "user": {
+    "roles": {
+      "admin": "Admin"
+    }
+  }
+}

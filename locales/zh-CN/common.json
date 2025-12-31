@@ -1,0 +1,36 @@
+{
+  "app": {
+    "name": "EDA Platform",
+    "edition": "企业版"
+  },
+  "language": {
+    "label": "语言",
+    "zhCN": "简体中文",
+    "enUS": "English"
+  },
+  "nav": {
+    "dashboard": "仪表板",
+    "datasets": "数据集",
+    "apiBuilder": "API 构建器",
+    "apiCatalog": "API 目录",
+    "approval": "审核中心",
+    "management": "管理中心",
+    "settings": "系统设置"
+  },
+  "footer": {
+    "version": "v{{version}}",
+    "copyright": "© {{year}} EDA"
+  },
+  "sidebar": {
+    "title": "企业数据API平台",
+    "subtitle": "连接 · 数据集 · API"
+  },
+  "time": {
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}} 分钟前",
+    "hoursAgo": "{{count}} 小时前"
+  },
+  "a11y": {
+    "toggleSidebar": "切换侧边栏"
+  }
+}

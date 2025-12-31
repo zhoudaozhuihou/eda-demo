@@ -1,0 +1,239 @@
+{
+  "title": "Management",
+  "subtitle": "Manage teams, members, connections, and permissions",
+  "tabs": {
+    "connections": "Connections",
+    "teams": "Teams",
+    "members": "Members",
+    "roles": "Roles",
+    "roleGroups": "Role groups"
+  },
+  "actions": {
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "pagination": {
+    "total": "{{count}} total",
+    "perPage": "Per page",
+    "pageSize": "{{count}} / page"
+  },
+  "toasts": {
+    "noConnectionPermission": "You don't have permission to manage connections",
+    "fixFormErrorsFirst": "Fix the form errors first",
+    "completeConnectionTestFirst": "Complete the connection test before saving",
+    "connectionTestSuccess": "Connection test passed",
+    "connectionTestFailed": "Connection test failed. Check the settings.",
+    "connectionTestSuccessWithName": "Connection test passed: {{name}}",
+    "connectionTestFailedWithName": "Connection test failed: {{name}}",
+    "connectionAdded": "Connection added",
+    "connectionRemoved": "Connection removed"
+  },
+  "connection": {
+    "status": {
+      "testingInline": "Testing...",
+      "testFailed": "Test failed"
+    }
+  },
+  "connections": {
+    "searchPlaceholder": "Search connections...",
+    "add": "Add connection",
+    "test": "Test connection",
+    "empty": "No matching connections found",
+    "fields": {
+      "host": "Host",
+      "port": "Port",
+      "database": "Database",
+      "lastSync": "Last sync"
+    },
+    "status": {
+      "connected": "Connected",
+      "testing": "Testing",
+      "error": "Connection error"
+    },
+    "addDialog": {
+      "title": "Add connection"
+    },
+    "reference": {
+      "title": "Supported data source types",
+      "groups": {
+        "relational": "Relational",
+        "olap": "OLAP",
+        "nosql": "NoSQL",
+        "cloud": "Cloud"
+      }
+    }
+  },
+  "connectionForm": {
+    "fields": {
+      "name": "Connection name",
+      "type": "Database type",
+      "port": "Port",
+      "descriptionOptional": "Description (optional)"
+    },
+    "labels": {
+      "host": "Host",
+      "database": "Database / instance",
+      "username": "Username",
+      "password": "Password",
+      "hostByType": {
+        "dynamo": "Endpoint / region",
+        "bigquery": "Host",
+        "maxcompute": "Host",
+        "databricks": "Host"
+      },
+      "databaseByType": {
+        "oracle": "Service name / SID",
+        "snowflake": "Database / schema",
+        "redis": "DB index",
+        "cassandra": "Keyspace",
+        "dynamo": "Table prefix / namespace",
+        "bigquery": "Project.Dataset",
+        "maxcompute": "Project",
+        "databricks": "Workspace / SQL warehouse"
+      },
+      "usernameByType": {
+        "bigquery": "Service account",
+        "maxcompute": "AccessKey ID",
+        "dynamo": "AccessKey ID",
+        "databricks": "Token / account",
+        "redis": "Username (optional)"
+      },
+      "passwordByType": {
+        "bigquery": "Key (optional)",
+        "maxcompute": "AccessKey secret",
+        "dynamo": "SecretAccessKey",
+        "databricks": "Token"
+      }
+    },
+    "placeholders": {
+      "name": "e.g. Production DB",
+      "host": "Enter host",
+      "database": "Enter database / instance",
+      "username": "Enter username",
+      "password": "Enter credentials",
+      "port": "e.g. 5432",
+      "description": "Describe the connection for your team",
+      "hostByType": {
+        "mysql": "e.g. mysql.company.com",
+        "postgresql": "e.g. postgres.company.com",
+        "oracle": "e.g. oracle.company.com",
+        "sqlserver": "e.g. sqlserver.company.com",
+        "clickhouse": "e.g. clickhouse.company.com",
+        "snowflake": "e.g. xxx.snowflakecomputing.com",
+        "redshift": "e.g. xxx.redshift.amazonaws.com",
+        "mongodb": "e.g. mongo.company.com",
+        "redis": "e.g. redis.company.com",
+        "cassandra": "e.g. cassandra.company.com",
+        "dynamo": "e.g. dynamodb.ap-southeast-1.amazonaws.com",
+        "bigquery": "bigquery.googleapis.com",
+        "maxcompute": "maxcompute.aliyun.com",
+        "databricks": "e.g. dbc-xxx.cloud.databricks.com"
+      },
+      "databaseByType": {
+        "bigquery": "e.g. company-project.analytics",
+        "maxcompute": "e.g. company_project",
+        "redis": "e.g. 0",
+        "snowflake": "e.g. analytics.public",
+        "oracle": "e.g. ORCL"
+      }
+    },
+    "ssl": {
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "testHint": {
+      "idle": "Run a connection test first",
+      "testing": "Testing connection...",
+      "success": "Test passed. You can save now.",
+      "error": "Test failed. Check the settings."
+    },
+    "validation": {
+      "nameRequired": "Enter a connection name",
+      "hostRequired": "Enter a host",
+      "portRequired": "Enter a port",
+      "portNumeric": "Port must be numeric",
+      "databaseRequired": "Enter a database / instance",
+      "usernameRequired": "Enter a username"
+    }
+  },
+  "teams": {
+    "searchPlaceholder": "Search teams...",
+    "create": "Create team",
+    "viewMembers": "View members",
+    "empty": "No matching teams found",
+    "fields": {
+      "members": "Members",
+      "apis": "APIs"
+    }
+  },
+  "members": {
+    "searchPlaceholder": "Search members...",
+    "invite": "Invite member",
+    "empty": "No matching members found",
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    }
+  },
+  "roles": {
+    "searchPlaceholder": "Search roles...",
+    "create": "Create role",
+    "systemRole": "System role",
+    "permissionsList": "Permissions",
+    "userCount": "{{count}} user",
+    "userCount_plural": "{{count}} users",
+    "viewUsers": "View users",
+    "empty": "No matching roles found",
+    "permissionsReference": {
+      "title": "Available permissions",
+      "groups": {
+        "api": "API management",
+        "data": "Data management",
+        "approval": "Approval",
+        "system": "System",
+        "ops": "Operations"
+      },
+      "items": {
+        "api": {
+          "create": "Create API",
+          "edit": "Edit API",
+          "delete": "Delete API",
+          "view": "View API",
+          "test": "Test API",
+          "publish": "Publish API"
+        },
+        "data": {
+          "viewDatasets": "View datasets",
+          "editDatasets": "Edit datasets",
+          "manageConnections": "Manage connections",
+          "viewData": "View data"
+        },
+        "approval": {
+          "approveApi": "Approve API",
+          "viewHistory": "View approval history",
+          "revoke": "Revoke approval"
+        },
+        "system": {
+          "userManagement": "User management",
+          "roleManagement": "Role management",
+          "settings": "System settings",
+          "viewLogs": "View logs"
+        },
+        "ops": {
+          "viewMonitoring": "View monitoring",
+          "viewAlerts": "View alerts",
+          "performance": "Performance analysis"
+        }
+      }
+    }
+  },
+  "roleGroups": {
+    "searchPlaceholder": "Search role groups...",
+    "create": "Create role group",
+    "includedRoles": "Included roles",
+    "userCount": "{{count}} user",
+    "userCount_plural": "{{count}} users",
+    "manageMembers": "Manage members",
+    "empty": "No matching role groups found"
+  }
+}
