@@ -14,8 +14,8 @@ function buildResources(modules: Record<string, unknown>) {
   }, {});
 }
 
-const zhModules = import.meta.glob('../../locales/zh-CN/*.json', { eager: true, import: 'default' });
-const enModules = import.meta.glob('../../locales/en-US/*.json', { eager: true, import: 'default' });
+const zhModules = import.meta.glob('../../public/locales/zh-CN/*.json', { eager: true, import: 'default' });
+const enModules = import.meta.glob('../../public/locales/en-US/*.json', { eager: true, import: 'default' });
 
 const resources = {
   'zh-CN': buildResources(zhModules),

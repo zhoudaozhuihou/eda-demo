@@ -12,6 +12,16 @@ interface LineageGraphProps {
 export function LineageGraph({ dataset, onNodeClick }: LineageGraphProps) {
   const { t } = useTranslation('datasets');
 
+  const supportsCanvas = useMemo(() => {
+    if (typeof document === 'undefined' || typeof HTMLCanvasElement === 'undefined') return false;
+    try {
+      const canvas = document.createElement('canvas');
+      return typeof canvas.getContext === 'function' && canvas.getContext('2d') != null;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const option = useMemo(() => {
     const fromWarehouse = /仓库|warehouse/i.test(dataset.source);
     
@@ -145,9 +155,21 @@ export function LineageGraph({ dataset, onNodeClick }: LineageGraphProps) {
     };
   }, [dataset, t]);
 
+  if (!supportsCanvas) {
+    return (
+      <Card className="w-full h-[500px] p-4 flex flex-col gap-3" aria-label={t('dialogs.lineage')}>
+        <div className="text-muted-foreground">{dataset.alias ?? dataset.name}</div>
+        <div className="space-y-2 text-sm">
+          <div>{t('lineage.upstream')}: {['RawEvents', 'UserProfile'].join(', ')}</div>
+          <div>{t('lineage.downstream')}: {dataset.relatedAPIs.join(', ') || t('lineage.noDownstream')}</div>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card className="w-full h-[500px] p-4">
-      <ReactECharts 
+      <ReactECharts
         option={option} 
         style={{ height: '100%', width: '100%' }} 
         onEvents={{
