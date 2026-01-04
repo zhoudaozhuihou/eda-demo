@@ -7,10 +7,14 @@ import { useTheme as useNextTheme } from "next-themes";
 import { Provider } from "react-redux";
 import { CssBaseline } from "@mui/material";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
+import { ErrorBoundary } from "./app/components/ErrorBoundary";
 import App from "./app/App";
 import "./styles/index.css";
 import { store } from "./store/store";
+import { initErrorMonitoring } from "./services/error-monitoring";
 import "./i18n";
+
+initErrorMonitoring();
 
 const lightPaletteTokens = {
   background: "#ffffff",
@@ -91,7 +95,9 @@ createRoot(document.getElementById("root")!).render(
       storageKey="eda-platform-theme"
     >
       <MuiAppThemeProvider>
-        <App />
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
       </MuiAppThemeProvider>
     </NextThemesProvider>
   </Provider>,

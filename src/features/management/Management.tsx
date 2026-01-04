@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -11,14 +11,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/app/components/ui/pagination';
 import { Switch } from '@/app/components/ui/switch';
 import { Textarea } from '@/app/components/ui/textarea';
-import { Plus, Search, Users, Database, Mail, Shield, Edit, Trash2, UserPlus, UserCog } from 'lucide-react';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { Plus, Search, Users, Database, Mail, Shield, Edit, Trash2, UserPlus, UserCog, FolderOpen, ChevronRight, ChevronDown, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchManagement, managementActions } from '@/features/management/store';
 import type { ManagementConnection } from '@/features/management/types';
 import { useTranslation } from 'react-i18next';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import {
+  createCategory as createCategoryThunk,
+  deleteCategories as deleteCategoriesThunk,
+  fetchTaxonomy,
+  moveCategories as moveCategoriesThunk,
+  reorderCategories as reorderCategoriesThunk,
+  updateCategory as updateCategoryThunk,
+} from '@/features/categories/store';
+import type { Category as TaxonomyCategory } from '@/features/categories/types';
 
 type ConnectionType = ManagementConnection['type'];
+
+const EMPTY_TAXONOMY_CATEGORIES: TaxonomyCategory[] = [];
 
 type ConnectionForm = {
   name: string;
@@ -53,11 +67,18 @@ export function Management() {
   const connections = useAppSelector((s) => s.management.connections);
   const roles = useAppSelector((s) => s.management.roles);
   const roleGroups = useAppSelector((s) => s.management.roleGroups);
+  const taxonomy = useAppSelector((s) => s.categories.taxonomy);
+  const taxonomyStatus = useAppSelector((s) => s.categories.status);
 
   useEffect(() => {
     if (managementStatus !== 'idle') return;
     dispatch(fetchManagement());
   }, [dispatch, managementStatus]);
+
+  useEffect(() => {
+    if (taxonomyStatus !== 'idle') return;
+    dispatch(fetchTaxonomy());
+  }, [dispatch, taxonomyStatus]);
 
   const canManageConnections = true;
   const connectionTypes: Array<ConnectionType> = [
@@ -460,6 +481,396 @@ export function Management() {
     [roleGroupsCurrentPage, roleGroupsTotalPages],
   );
 
+  const [categorySearch, setCategorySearch] = useState('');
+  const [categorySelection, setCategorySelection] = useState<Set<string>>(new Set());
+  const [categoryExpanded, setCategoryExpanded] = useState<Set<string>>(new Set());
+  const [categoryCreateOpen, setCategoryCreateOpen] = useState(false);
+  const [categoryRenameOpen, setCategoryRenameOpen] = useState(false);
+  const [categoryCreateName, setCategoryCreateName] = useState('');
+  const [categoryCreateParentId, setCategoryCreateParentId] = useState<string | null>(null);
+  const [categoryRenameId, setCategoryRenameId] = useState<string | null>(null);
+  const [categoryRenameName, setCategoryRenameName] = useState('');
+  const [categoryMoveParentId, setCategoryMoveParentId] = useState<string | null>(null);
+
+  const taxonomyCategories = taxonomy?.categories ?? EMPTY_TAXONOMY_CATEGORIES;
+  const categoryById = useMemo(() => new Map(taxonomyCategories.map((c) => [c.id, c] as const)), [taxonomyCategories]);
+
+  const childrenByParentId = useMemo(() => {
+    return taxonomyCategories.reduce<Map<string | null, TaxonomyCategory[]>>((acc, c) => {
+      const list = acc.get(c.parentId) ?? [];
+      list.push(c);
+      acc.set(c.parentId, list);
+      return acc;
+    }, new Map());
+  }, [taxonomyCategories]);
+
+  const sortedChildren = useMemo(() => {
+    const sortKey = (c: TaxonomyCategory) => [c.order, c.name] as const;
+    const cmp = (a: TaxonomyCategory, b: TaxonomyCategory) => {
+      const [ao, an] = sortKey(a);
+      const [bo, bn] = sortKey(b);
+      return ao - bo || an.localeCompare(bn);
+    };
+    const map = new Map<string | null, TaxonomyCategory[]>();
+    for (const [pid, list] of childrenByParentId) {
+      map.set(pid, [...list].sort(cmp));
+    }
+    return map;
+  }, [childrenByParentId]);
+
+  const linkCountsByCategoryId = useMemo(() => {
+    const out = new Map<string, { api: number; dataset: number }>();
+    if (!taxonomy) return out;
+    for (const l of taxonomy.links) {
+      const cur = out.get(l.categoryId) ?? { api: 0, dataset: 0 };
+      if (l.itemType === 'api') cur.api += 1;
+      else cur.dataset += 1;
+      out.set(l.categoryId, cur);
+    }
+    return out;
+  }, [taxonomy]);
+
+  const selectedCategoryIds = useMemo(() => Array.from(categorySelection), [categorySelection]);
+  const selectedSingleId = selectedCategoryIds.length === 1 ? selectedCategoryIds[0] : null;
+
+  useEffect(() => {
+    if (!taxonomyCategories.length) return;
+    if (categoryExpanded.size > 0) return;
+    const roots = sortedChildren.get(null) ?? [];
+    setCategoryExpanded(new Set(roots.slice(0, 2).map((c) => c.id)));
+  }, [categoryExpanded.size, sortedChildren, taxonomyCategories.length]);
+
+  const filteredCategoryRootIds = useMemo(() => {
+    const q = categorySearch.trim().toLowerCase();
+    if (!q) return null;
+    const matches = new Set<string>();
+    for (const c of taxonomyCategories) {
+      if (c.name.toLowerCase().includes(q)) matches.add(c.id);
+    }
+    if (matches.size === 0) return new Set<string>();
+
+    const keep = new Set<string>();
+    const addAncestors = (id: string) => {
+      let cur: string | null = id;
+      while (cur) {
+        if (keep.has(cur)) break;
+        keep.add(cur);
+        cur = categoryById.get(cur)?.parentId ?? null;
+      }
+    };
+    matches.forEach(addAncestors);
+    return keep;
+  }, [categoryById, categorySearch, taxonomyCategories]);
+
+  const descendantsOf = (rootId: string) => {
+    const out = new Set<string>();
+    const stack = [rootId];
+    while (stack.length) {
+      const id = stack.pop()!;
+      const kids = sortedChildren.get(id) ?? [];
+      for (const k of kids) {
+        if (out.has(k.id)) continue;
+        out.add(k.id);
+        stack.push(k.id);
+      }
+    }
+    return out;
+  };
+
+  const canMoveToParent = (ids: string[], parentId: string | null) => {
+    if (ids.length === 0) return false;
+    if (parentId === null) return true;
+    if (ids.includes(parentId)) return false;
+    for (const id of ids) {
+      if (descendantsOf(id).has(parentId)) return false;
+    }
+    return true;
+  };
+
+  const reorderAsSibling = async (
+    targetParentId: string | null,
+    dragId: string,
+    hoverId: string,
+    position: 'before' | 'after',
+  ) => {
+    if (dragId === hoverId) return;
+
+    const curParentId = categoryById.get(dragId)?.parentId ?? null;
+    if (curParentId !== targetParentId) {
+      if (!canMoveToParent([dragId], targetParentId)) {
+        toast.error(t('categories.toasts.invalidMove'));
+        return;
+      }
+      await dispatch(moveCategoriesThunk({ ids: [dragId], parentId: targetParentId })).unwrap();
+    }
+
+    const siblings = (sortedChildren.get(targetParentId) ?? [])
+      .map((c) => c.id)
+      .filter((id) => id !== dragId);
+    if (!siblings.includes(hoverId)) return;
+
+    const hoverIdx = siblings.indexOf(hoverId);
+    const insertIdx = position === 'before' ? hoverIdx : hoverIdx + 1;
+    const next = [...siblings];
+    next.splice(insertIdx, 0, dragId);
+    await dispatch(reorderCategoriesThunk({ parentId: targetParentId, orderedIds: next })).unwrap();
+  };
+
+  const moveToParent = async (ids: string[], parentId: string | null) => {
+    if (!canMoveToParent(ids, parentId)) {
+      toast.error(t('categories.toasts.invalidMove'));
+      return;
+    }
+
+    const nextIds = ids.filter((id) => (categoryById.get(id)?.parentId ?? null) !== parentId);
+    if (nextIds.length === 0) return;
+
+    await dispatch(moveCategoriesThunk({ ids: nextIds, parentId })).unwrap();
+
+    const siblings = (sortedChildren.get(parentId) ?? []).map((c) => c.id).filter((id) => !nextIds.includes(id));
+    await dispatch(reorderCategoriesThunk({ parentId, orderedIds: [...siblings, ...nextIds] })).unwrap();
+  };
+
+  const deleteSelectedCategories = async (ids: string[]) => {
+    if (!ids.length) return;
+    const selected = new Set(ids);
+    const hasExternalChild = (id: string) => (sortedChildren.get(id) ?? []).some((c) => !selected.has(c.id));
+    if (ids.some(hasExternalChild)) {
+      toast.error(t('categories.toasts.cannotDeleteWithChildren'));
+      return;
+    }
+    await dispatch(deleteCategoriesThunk({ ids })).unwrap();
+    setCategorySelection(new Set());
+  };
+
+  type DragItem = { type: 'CATEGORY_NODE'; id: string; parentId: string | null };
+  const DND_TYPE: DragItem['type'] = 'CATEGORY_NODE';
+
+  const CategoryRow = ({
+    category,
+    depth,
+  }: {
+    category: TaxonomyCategory;
+    depth: number;
+  }) => {
+    const id = category.id;
+    const expanded = categoryExpanded.has(id);
+    const kids = sortedChildren.get(id) ?? [];
+    const isSelected = categorySelection.has(id);
+    const counts = linkCountsByCategoryId.get(id) ?? { api: 0, dataset: 0 };
+
+    const [{ isDragging }, dragRef] = useDrag<DragItem, void, { isDragging: boolean }>(
+      () => ({
+        type: DND_TYPE,
+        item: { type: DND_TYPE, id, parentId: category.parentId } satisfies DragItem,
+        collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+      }),
+      [DND_TYPE, category.parentId, id],
+    );
+
+    const rowRef = useRef<HTMLDivElement | null>(null);
+
+    const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>(
+      () => ({
+        accept: DND_TYPE,
+        collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
+        drop: (item: DragItem, monitor) => {
+          if (!monitor.isOver({ shallow: true })) return;
+          if (item.id === id) return;
+          const client = monitor.getClientOffset();
+          const rect = rowRef.current?.getBoundingClientRect();
+          const y = client && rect ? client.y - rect.top : rect ? rect.height : 0;
+          const position: 'before' | 'after' = rect && y < rect.height / 2 ? 'before' : 'after';
+          void reorderAsSibling(category.parentId, item.id, id, position).catch(() => {
+            toast.error(t('categories.toasts.reorderFailed'));
+          });
+        },
+      }),
+      [DND_TYPE, category.parentId, id, reorderAsSibling],
+    );
+
+    const [{ isOver: isChildOver, canDrop: canDropToChild }, childDropRef] = useDrop<
+      DragItem,
+      void,
+      { isOver: boolean; canDrop: boolean }
+    >(
+      () => ({
+        accept: DND_TYPE,
+        canDrop: (item) => item.id !== id,
+        collect: (monitor) => ({
+          isOver: monitor.isOver({ shallow: true }),
+          canDrop: monitor.canDrop(),
+        }),
+        drop: (item: DragItem) => {
+          if (item.id === id) return;
+          void moveToParent([item.id], id).catch(() => {
+            toast.error(t('categories.toasts.moveFailed'));
+          });
+        },
+      }),
+      [DND_TYPE, id, moveToParent],
+    );
+
+    const showRow = (() => {
+      if (!filteredCategoryRootIds) return true;
+      if (filteredCategoryRootIds.size === 0) return false;
+      return filteredCategoryRootIds.has(id);
+    })();
+    if (!showRow) return null;
+
+    return (
+      <div>
+        <div
+          ref={(el) => {
+            rowRef.current = el;
+            dropRef(el);
+          }}
+          className={`flex items-center gap-2 rounded-md px-2 py-2 border ${isOver ? 'border-primary bg-accent/30' : 'border-transparent'} ${
+            isDragging ? 'opacity-50' : ''
+          }`}
+          style={{ paddingLeft: `${8 + depth * 16}px` }}
+        >
+          <button
+            type="button"
+            className="cursor-grab active:cursor-grabbing text-muted-foreground"
+            aria-label={t('categories.actions.drag')}
+            ref={(el) => {
+              dragRef(el);
+            }}
+          >
+            <GripVertical className="size-4" />
+          </button>
+
+          {kids.length > 0 ? (
+            <button
+              type="button"
+              className="text-muted-foreground"
+              aria-label={expanded ? t('categories.actions.collapse') : t('categories.actions.expand')}
+              onClick={() => {
+                setCategoryExpanded((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  return next;
+                });
+              }}
+            >
+              {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+            </button>
+          ) : (
+            <span className="w-4" />
+          )}
+
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={(v) => {
+              setCategorySelection((prev) => {
+                const next = new Set(prev);
+                if (v) next.add(id);
+                else next.delete(id);
+                return next;
+              });
+            }}
+            aria-label={t('categories.actions.select')}
+          />
+
+          <div className="flex-1 min-w-0">
+            <div className="truncate">{category.name}</div>
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{t('categories.labels.apiCount', { count: counts.api })}</span>
+              <span>·</span>
+              <span>{t('categories.labels.datasetCount', { count: counts.dataset })}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setCategoryCreateParentId(id);
+                setCategoryCreateName('');
+                setCategoryCreateOpen(true);
+              }}
+            >
+              {t('categories.actions.addChild')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setCategoryRenameId(id);
+                setCategoryRenameName(category.name);
+                setCategoryRenameOpen(true);
+              }}
+            >
+              {t('categories.actions.rename')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={kids.length > 0}
+              onClick={async () => {
+                try {
+                  await deleteSelectedCategories([id]);
+                } catch {
+                  toast.error(t('categories.toasts.deleteFailed'));
+                }
+              }}
+            >
+              {t('categories.actions.delete')}
+            </Button>
+          </div>
+        </div>
+
+        <div
+          ref={(el) => {
+            childDropRef(el);
+          }}
+          className={`transition-[height,margin,opacity] ${
+            canDropToChild ? 'mt-1 h-2 opacity-100' : 'h-0 opacity-0'
+          } ${isChildOver ? 'bg-primary/20 border border-primary' : 'bg-muted border border-dashed border-muted-foreground/40'}`}
+          style={{ marginLeft: `${8 + depth * 16 + 20}px` }}
+        />
+
+        {kids.length > 0 && expanded && (
+          <div className="space-y-1">
+            {kids.map((k) => (
+              <CategoryRow key={k.id} category={k} depth={depth + 1} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const RootDropZone = () => {
+    const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>(
+      () => ({
+        accept: DND_TYPE,
+        collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
+        drop: (item: DragItem) => {
+          void moveToParent([item.id], null).catch(() => {
+            toast.error(t('categories.toasts.moveFailed'));
+          });
+        },
+      }),
+      [DND_TYPE, moveToParent],
+    );
+    return (
+      <div
+        ref={(el) => {
+          dropRef(el);
+        }}
+        className={`rounded-md border p-3 text-sm ${
+          isOver ? 'border-primary bg-accent' : 'border-border'
+        }`}
+      >
+        {t('categories.rootDrop')}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -488,6 +899,10 @@ export function Management() {
           <TabsTrigger value="rolegroups" className="gap-2">
             <UserCog className="size-4" />
             {t('tabs.roleGroups')}
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="gap-2">
+            <FolderOpen className="size-4" />
+            {t('tabs.categories')}
           </TabsTrigger>
         </TabsList>
 
@@ -1588,6 +2003,214 @@ export function Management() {
               </Card>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="categories" className="space-y-4">
+          <DndProvider backend={HTML5Backend}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  placeholder={t('categories.searchPlaceholder')}
+                  className="pl-10"
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  className="gap-2"
+                  onClick={() => {
+                    setCategoryCreateParentId(null);
+                    setCategoryCreateName('');
+                    setCategoryCreateOpen(true);
+                  }}
+                >
+                  <Plus className="size-4" />
+                  {t('categories.actions.addRoot')}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!selectedSingleId}
+                  onClick={() => {
+                    if (!selectedSingleId) return;
+                    setCategoryCreateParentId(selectedSingleId);
+                    setCategoryCreateName('');
+                    setCategoryCreateOpen(true);
+                  }}
+                >
+                  {t('categories.actions.addChild')}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!selectedSingleId}
+                  onClick={() => {
+                    if (!selectedSingleId) return;
+                    const c = categoryById.get(selectedSingleId);
+                    if (!c) return;
+                    setCategoryRenameId(c.id);
+                    setCategoryRenameName(c.name);
+                    setCategoryRenameOpen(true);
+                  }}
+                >
+                  {t('categories.actions.rename')}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={selectedCategoryIds.length === 0}
+                  onClick={async () => {
+                    try {
+                      await deleteSelectedCategories(selectedCategoryIds);
+                    } catch {
+                      toast.error(t('categories.toasts.deleteFailed'));
+                    }
+                  }}
+                >
+                  {t('categories.actions.deleteSelected')}
+                </Button>
+              </div>
+            </div>
+
+            <Card className="p-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="text-sm text-muted-foreground">{t('categories.labels.moveTo')}</div>
+                <Select
+                  value={categoryMoveParentId === null ? '__root__' : categoryMoveParentId ?? ''}
+                  onValueChange={(v) => setCategoryMoveParentId(v === '__root__' ? null : v)}
+                >
+                  <SelectTrigger className="w-[260px]">
+                    <SelectValue placeholder={t('categories.placeholders.selectParent')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__root__">{t('categories.root')}</SelectItem>
+                    {taxonomyCategories
+                      .filter((c) => !selectedCategoryIds.includes(c.id))
+                      .map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  disabled={!categoryMoveParentId && categoryMoveParentId !== null ? true : selectedCategoryIds.length === 0}
+                  onClick={async () => {
+                    if (selectedCategoryIds.length === 0) return;
+                    try {
+                      await moveToParent(selectedCategoryIds, categoryMoveParentId ?? null);
+                      setCategorySelection(new Set());
+                    } catch {
+                      toast.error(t('categories.toasts.moveFailed'));
+                    }
+                  }}
+                >
+                  {t('categories.actions.move')}
+                </Button>
+              </div>
+
+              <RootDropZone />
+
+              <div className="max-h-[calc(100vh-520px)] overflow-y-auto pr-2 space-y-1">
+                {(sortedChildren.get(null) ?? []).map((c) => (
+                  <CategoryRow key={c.id} category={c} depth={0} />
+                ))}
+                {taxonomyCategories.length === 0 && (
+                  <div className="text-sm text-muted-foreground py-8 text-center">{t('categories.empty')}</div>
+                )}
+              </div>
+            </Card>
+
+            <Dialog open={categoryCreateOpen} onOpenChange={setCategoryCreateOpen}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{t('categories.dialogs.createTitle')}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>{t('categories.fields.name')}</Label>
+                    <Input value={categoryCreateName} onChange={(e) => setCategoryCreateName(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t('categories.fields.parent')}</Label>
+                    <Select
+                      value={categoryCreateParentId === null ? '__root__' : categoryCreateParentId ?? '__root__'}
+                      onValueChange={(v) => setCategoryCreateParentId(v === '__root__' ? null : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__root__">{t('categories.root')}</SelectItem>
+                        {taxonomyCategories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCategoryCreateOpen(false)}>
+                    {t('actions.cancel')}
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      const name = categoryCreateName.trim();
+                      if (!name) {
+                        toast.error(t('categories.toasts.nameRequired'));
+                        return;
+                      }
+                      try {
+                        await dispatch(createCategoryThunk({ name, parentId: categoryCreateParentId, order: 9999 })).unwrap();
+                        setCategoryCreateOpen(false);
+                      } catch {
+                        toast.error(t('categories.toasts.createFailed'));
+                      }
+                    }}
+                  >
+                    {t('categories.actions.create')}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={categoryRenameOpen} onOpenChange={setCategoryRenameOpen}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{t('categories.dialogs.renameTitle')}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2">
+                  <Label>{t('categories.fields.name')}</Label>
+                  <Input value={categoryRenameName} onChange={(e) => setCategoryRenameName(e.target.value)} />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCategoryRenameOpen(false)}>
+                    {t('actions.cancel')}
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      const id = categoryRenameId;
+                      if (!id) return;
+                      const name = categoryRenameName.trim();
+                      if (!name) {
+                        toast.error(t('categories.toasts.nameRequired'));
+                        return;
+                      }
+                      try {
+                        await dispatch(updateCategoryThunk({ id, patch: { name } })).unwrap();
+                        setCategoryRenameOpen(false);
+                      } catch {
+                        toast.error(t('categories.toasts.renameFailed'));
+                      }
+                    }}
+                  >
+                    {t('actions.save')}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </DndProvider>
         </TabsContent>
       </Tabs>
     </div>

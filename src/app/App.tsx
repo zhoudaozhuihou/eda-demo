@@ -5,6 +5,8 @@ import { Dashboard } from '@/features/dashboard/Dashboard';
 import { Datasets } from '@/features/datasets/Datasets';
 import { APIBuilder, type APIBuilderContext } from '@/features/api-builder/APIBuilder';
 import { APICatalog } from '@/features/api-catalog/APICatalog';
+import { ApiDetailsPage } from '@/features/api-catalog/ApiDetailsPage';
+import { DatasetDetailsPage } from '@/features/datasets/DatasetDetailsPage';
 import { Approval } from '@/features/approval/Approval';
 import { Management } from '@/features/management/Management';
 import { Settings } from '@/features/settings/Settings';
@@ -12,10 +14,15 @@ import { Toaster } from './components/ui/sonner';
 import i18n, { setAppLanguage } from '@/i18n';
 import { getLanguageFromPathname, stripLanguagePrefix, withLanguagePrefix } from '@/i18n/routing';
 
+import { NotFound } from '@/app/pages/NotFound';
+
 export default function App() {
   const [activeView, setActiveView] = useState('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [apiBuilderContext, setApiBuilderContext] = useState<APIBuilderContext | null>(null);
+  const [detailApiId, setDetailApiId] = useState<string | null>(null);
+  const [detailDatasetId, setDetailDatasetId] = useState<string | null>(null);
+  const [language, setLanguage] = useState(i18n.language);
 
   useEffect(() => {
     const syncFromLocation = () => {
@@ -26,6 +33,22 @@ export default function App() {
 
       const stripped = stripLanguagePrefix(window.location.pathname);
       const parts = stripped.split('/').filter(Boolean);
+      
+      // Handle /api/details/:id
+      if (parts[0] === 'api' && parts[1] === 'details' && parts[2]) {
+        setActiveView('api-details');
+        setDetailApiId(parts[2]);
+        return;
+      }
+
+      // Handle /dataset/details/:id
+      if (parts[0] === 'dataset' && parts[1] === 'details' && parts[2]) {
+        setActiveView('dataset-details');
+        setDetailDatasetId(parts[2]);
+        return;
+      }
+
+      // Default to 'dashboard' only if root path, otherwise keep the view segment
       const nextView = parts[0] || 'dashboard';
       setActiveView(nextView);
     };
@@ -33,14 +56,42 @@ export default function App() {
     syncFromLocation();
 
     const onNavigate = (e: Event) => {
-      const evt = e as CustomEvent<{ view?: string; apiBuilderContext?: APIBuilderContext }>;
+      const evt = e as CustomEvent<{ view?: string; params?: Record<string, string>; apiBuilderContext?: APIBuilderContext }>;
       const view = evt.detail?.view;
       if (!view) return;
+      
       if (view === 'api-builder') {
         setApiBuilderContext(evt.detail?.apiBuilderContext ?? null);
       }
+      
+      if (view === 'api-details') {
+        const id = evt.detail?.params?.id;
+        if (id) {
+          setDetailApiId(id);
+          setActiveView(view);
+          window.history.pushState(null, '', withLanguagePrefix(`/api/details/${id}`, i18n.language as 'en-US' | 'zh-CN'));
+          return;
+        }
+      }
+
+      if (view === 'dataset-details') {
+        const id = evt.detail?.params?.id;
+        if (id) {
+          setDetailDatasetId(id);
+          setActiveView(view);
+          window.history.pushState(null, '', withLanguagePrefix(`/dataset/details/${id}`, i18n.language as 'en-US' | 'zh-CN'));
+          return;
+        }
+      }
+
       setActiveView(view);
-      window.history.pushState(null, '', withLanguagePrefix(`/${view}`, i18n.language as 'en-US' | 'zh-CN'));
+      
+      let search = '';
+      if (evt.detail?.params) {
+        search = '?' + new URLSearchParams(evt.detail.params).toString();
+      }
+      
+      window.history.pushState(null, '', withLanguagePrefix(`/${view}${search}`, i18n.language as 'en-US' | 'zh-CN'));
     };
 
     window.addEventListener('eda:navigate', onNavigate as EventListener);
@@ -50,6 +101,31 @@ export default function App() {
       window.removeEventListener('popstate', syncFromLocation);
     };
   }, []);
+
+  useEffect(() => {
+    const onChanged = (lng: string) => setLanguage(lng);
+    i18n.on('languageChanged', onChanged);
+    return () => {
+      i18n.off('languageChanged', onChanged);
+    };
+  }, []);
+
+  useEffect(() => {
+    const nsByView: Record<string, string | null> = {
+      dashboard: 'dashboard',
+      datasets: 'datasets',
+      'api-builder': 'apiBuilder',
+      'api-catalog': 'apiCatalog',
+      'api-details': 'apiCatalog',
+      'dataset-details': 'datasets',
+      approval: 'approval',
+      management: 'management',
+      settings: 'settings',
+    };
+    const ns = nsByView[activeView] ?? null;
+    if (!ns) return;
+    void i18n.loadNamespaces([ns]);
+  }, [activeView, language]);
 
   const renderContent = () => {
     switch (activeView) {
@@ -61,6 +137,10 @@ export default function App() {
         return <APIBuilder context={apiBuilderContext} onClearContext={() => setApiBuilderContext(null)} />;
       case 'api-catalog':
         return <APICatalog />;
+      case 'api-details':
+        return detailApiId ? <ApiDetailsPage apiId={detailApiId} /> : <NotFound />;
+      case 'dataset-details':
+        return detailDatasetId ? <DatasetDetailsPage datasetId={detailDatasetId} /> : <NotFound />;
       case 'approval':
         return <Approval />;
       case 'management':
@@ -68,7 +148,12 @@ export default function App() {
       case 'settings':
         return <Settings />;
       default:
-        return <Dashboard />;
+        // If activeView is 'dashboard' (default) but we fell through, render Dashboard.
+        // Otherwise, it's an unknown view.
+        if (activeView === 'dashboard') {
+          return <Dashboard />;
+        }
+        return <NotFound />;
     }
   };
 

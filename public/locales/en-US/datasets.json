@@ -1,0 +1,221 @@
+{
+  "title": "Datasets",
+  "subtitle": "Browse and manage table metadata",
+  "actions": {
+    "backToList": "Back to list",
+    "clear": "Clear",
+    "cancel": "Cancel",
+    "close": "Close",
+    "create": "Create",
+    "createApi": "Create API",
+    "createDataset": "Create dataset",
+    "createNewApi": "Create new API",
+    "editDataset": "Edit dataset",
+    "editFields": "Edit fields",
+    "save": "Save",
+    "viewDetail": "View details →",
+    "viewHistory": "Change history",
+    "viewLineage": "View lineage",
+    "applyAccess": "Apply Access"
+  },
+  "search": {
+    "datasetsPlaceholder": "Search by dataset name or alias...",
+    "fieldsPlaceholder": "Search by name/alias/type/description"
+  },
+  "categories": {
+    "title": "Categories",
+    "all": "All datasets"
+  },
+  "hotTags": {
+    "title": "Hot tags"
+  },
+  "labels": {
+    "actions": "Actions",
+    "basicInfo": "Basic info",
+    "createdAt": "Created at",
+    "createdBy": "Created by",
+    "datasetAlias": "Alias",
+    "datasetNameEn": "Dataset name (English)",
+    "description": "Description",
+    "descriptionOptional": "Description (optional)",
+    "domain": "Domain",
+    "fieldsCount": "Fields",
+    "fieldsList": "Fields",
+    "lastUpdate": "Last update",
+    "lastUpdateInline": "Last update: {{date}}",
+    "maskedFields": "Masked Fields",
+    "project": "Project",
+    "metadata": "Metadata",
+    "methodGet": "GET",
+    "perPage": "Per page",
+    "relatedApis": "Related APIs ({{count}})",
+    "rowCount": "Row count",
+    "source": "Source",
+    "tags": "Tags",
+    "tagsComma": "Tags (comma-separated)",
+    "updatedAt": "Updated at",
+    "updatedBy": "Updated by"
+  },
+  "fields": {
+    "onlyKeyFields": "Key fields only",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "alias": "Alias",
+      "masked": "Masked",
+      "description": "Description"
+    },
+    "groups": {
+      "key": "Key fields",
+      "sensitive": "Sensitive",
+      "time": "Time",
+      "money": "Money",
+      "business": "Business",
+      "search": "Search results"
+    }
+  },
+  "counts": {
+    "total": "{{count}} total"
+  },
+  "empty": {
+    "noMatch": "No matching datasets found",
+    "noRelatedApis": "No related APIs"
+  },
+  "dialogs": {
+    "create": "Create dataset",
+    "edit": "Edit dataset",
+    "editFields": "Edit fields",
+    "history": "Change history",
+    "lineage": "Lineage",
+    "applyAccess": "Apply Access"
+  },
+  "apply": {
+    "title": "Apply Data Access (Auto Package)",
+    "project": "Target Project",
+    "reason": "Reason",
+    "validity": "Validity",
+    "selectedTables": "Selected Tables",
+    "days_30": "30 Days",
+    "days_90": "90 Days",
+    "days_180": "180 Days",
+    "permanent": "Permanent",
+    "submit": "Submit Application"
+  },
+  "form": {
+    "labels": {
+      "alias": "Alias",
+      "description": "Description (optional)",
+      "domain": "Domain",
+      "fields": "Fields",
+      "masked": "Masked fields",
+      "name": "Dataset name (English)",
+      "rowCount": "Row count",
+      "source": "Source",
+      "tags": "Tags (comma-separated)"
+    },
+    "placeholders": {
+      "alias": "e.g. User Orders",
+      "description": "Briefly describe purpose and definition",
+      "name": "e.g. user_orders",
+      "rowCount": "e.g. 1.2M",
+      "source": "e.g. Production DB",
+      "tags": "e.g. core,transaction"
+    },
+    "errors": {
+      "aliasRequired": "Please enter an alias",
+      "fieldsMin": "Fields must be greater than 0",
+      "fixFirst": "Please fix the form errors first",
+      "maskedMax": "Masked fields cannot exceed total fields",
+      "maskedMin": "Masked fields cannot be less than 0",
+      "nameInvalid": "Only letters/numbers/underscore are allowed, starting with a letter",
+      "nameRequired": "Please enter a dataset name (English)",
+      "rowCountRequired": "Please enter a row count",
+      "sourceRequired": "Please enter a source"
+    }
+  },
+  "toast": {
+    "copied": "Copied: {{value}}",
+    "created": "Dataset created",
+    "fieldSaved": "Field saved",
+    "updated": "Dataset updated"
+  },
+  "permissions": {
+    "noApiBuilder": "You don't have API builder permission",
+    "noManage": "You don't have dataset management permission"
+  },
+  "pagination": {
+    "perPageOption": "{{count}}"
+  },
+  "lineage": {
+    "upstream": "Upstream",
+    "current": "Current",
+    "downstream": "Downstream",
+    "noDownstream": "No downstream"
+  },
+  "domains": {
+    "订单域": "Orders",
+    "商品域": "Products",
+    "用户域": "Users",
+    "库存域": "Inventory"
+  },
+  "tags": {
+    "uncategorized": "Uncategorized",
+    "核心": "Core",
+    "交易": "Transaction",
+    "基础": "Basic",
+    "SKU": "SKU",
+    "敏感": "Sensitive",
+    "PII": "PII",
+    "实时": "Realtime"
+  },
+  "seed": {
+    "generated": {
+      "alias": "Field {{index}}",
+      "description": "Field description {{index}}"
+    },
+    "users": {
+      "zhangSan": "Zhang San",
+      "liSi": "Li Si"
+    },
+    "fields": {
+      "user_id": { "alias": "User ID", "description": "Unique user identifier" },
+      "order_id": { "alias": "Order ID", "description": "Unique order identifier" },
+      "order_date": { "alias": "Order time", "description": "Order created time" },
+      "total_amount": { "alias": "Order amount", "description": "Total order amount" },
+      "status": { "alias": "Status", "description": "Current status" },
+      "sku_id": { "alias": "SKU", "description": "Product SKU identifier" },
+      "product_id": { "alias": "Product ID", "description": "Unique product identifier" },
+      "price": { "alias": "Price", "description": "Unit price" },
+      "stock": { "alias": "Stock", "description": "Current stock" },
+      "email": { "alias": "Email", "description": "User email" },
+      "phone": { "alias": "Phone", "description": "User phone number" },
+      "created_at": { "alias": "Created at", "description": "Record created time" },
+      "updated_at": { "alias": "Updated at", "description": "Record updated time" }
+    }
+  },
+  "history": {
+    "actions": {
+      "fieldDescriptionUpdated": "Field description updated",
+      "maskRuleUpdated": "Masking rule updated",
+      "datasetCreated": "Dataset created"
+    },
+    "details": {
+      "addedSensitiveDescription": "Added sensitive field notes",
+      "addedPhoneEmailMasking": "Added phone/email masking",
+      "initializedMetadataAndTags": "Initialized metadata and tags"
+    },
+    "filterDate": "Filter by date",
+    "totalRecords": "{{count}} records total",
+    "time": "Time",
+    "operator": "Operator",
+    "action": "Action",
+    "detailsHeader": "Details",
+    "noRecords": "No records found"
+  },
+  "lineage": {
+    "upstream": "Upstream",
+    "current": "Current",
+    "downstream": "Downstream",
+    "noDownstream": "No downstream"
+  }
+}

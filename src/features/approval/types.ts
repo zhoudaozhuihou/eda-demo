@@ -1,8 +1,8 @@
 export type ApprovalRequest = {
   id: string;
-  apiName: string;
-  apiPath: string;
-  type: 'publish' | 'update' | 'deprecate' | 'delete';
+  apiName: string; // Used as Title
+  apiPath: string; // Used as Subtitle or Detail
+  type: 'publish' | 'update' | 'deprecate' | 'delete' | 'access_package';
   requester: string;
   requesterAvatar: string;
   team: string;
@@ -13,5 +13,10 @@ export type ApprovalRequest = {
   approver?: string;
   approvedAt?: string;
   approvalComment?: string;
+  packageInfo?: {
+    project: string;
+    validity: string;
+    tables: string[];
+  };
 };
 

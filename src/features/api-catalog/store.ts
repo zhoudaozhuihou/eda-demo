@@ -18,6 +18,9 @@ const apiCatalogSlice = createSlice({
   name: 'apiCatalog',
   initialState: { items: [], status: 'idle', error: null } as ListState<ApiCatalogApi>,
   reducers: {
+    apiAdded: (state, action: PayloadAction<ApiCatalogApi>) => {
+      state.items.unshift(action.payload);
+    },
     apiUpdated: (state, action: PayloadAction<{ id: string; patch: Partial<Omit<ApiCatalogApi, 'id'>> }>) => {
       const idx = state.items.findIndex((a) => a.id === action.payload.id);
       if (idx === -1) return;

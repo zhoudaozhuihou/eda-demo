@@ -9,7 +9,9 @@ export type Dataset = {
   masked: number;
   rowCount: string;
   lastUpdate: string;
+  createdAt: string;
+  updatedAt: string;
   relatedAPIs?: string[];
   description?: string;
+  project?: string;
 };
-

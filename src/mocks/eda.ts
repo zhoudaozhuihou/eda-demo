@@ -1,5 +1,65 @@
 import type { MockMethod } from 'vite-plugin-mock';
 
+type CategoryRecord = {
+  id: string;
+  name: string;
+  parentId: string | null;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type CategoryLinkRecord = {
+  itemType: 'dataset' | 'api';
+  itemId: string;
+  categoryId: string;
+};
+
+const nowDate = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+let categories: CategoryRecord[] = [
+  { id: 'cat_order', name: '订单域', parentId: null, order: 1, createdAt: '2025-10-01 10:00', updatedAt: '2025-12-28 10:00' },
+  { id: 'cat_product', name: '商品域', parentId: null, order: 2, createdAt: '2025-10-01 10:00', updatedAt: '2025-12-28 10:00' },
+  { id: 'cat_user', name: '用户域', parentId: null, order: 3, createdAt: '2025-10-01 10:00', updatedAt: '2025-12-28 10:00' },
+  { id: 'cat_inventory', name: '库存域', parentId: null, order: 4, createdAt: '2025-10-01 10:00', updatedAt: '2025-12-28 10:00' },
+
+  { id: 'cat_order_query', name: '订单查询', parentId: 'cat_order', order: 1, createdAt: '2025-10-01 10:05', updatedAt: '2025-12-28 10:00' },
+  { id: 'cat_order_manage', name: '订单管理', parentId: 'cat_order', order: 2, createdAt: '2025-10-01 10:05', updatedAt: '2025-12-28 10:00' },
+  { id: 'cat_product_query', name: '商品查询', parentId: 'cat_product', order: 1, createdAt: '2025-10-01 10:05', updatedAt: '2025-12-28 10:00' },
+  { id: 'cat_user_info', name: '用户信息', parentId: 'cat_user', order: 1, createdAt: '2025-10-01 10:05', updatedAt: '2025-12-28 10:00' },
+  { id: 'cat_inventory_manage', name: '库存管理', parentId: 'cat_inventory', order: 1, createdAt: '2025-10-01 10:05', updatedAt: '2025-12-28 10:00' },
+
+  { id: 'cat_order_user_orders', name: '用户订单', parentId: 'cat_order_query', order: 1, createdAt: '2025-10-01 10:10', updatedAt: '2025-12-28 10:00' },
+  { id: 'cat_order_detail', name: '订单详情', parentId: 'cat_order_query', order: 2, createdAt: '2025-10-01 10:10', updatedAt: '2025-12-28 10:00' },
+  { id: 'cat_order_create', name: '创建订单', parentId: 'cat_order_manage', order: 1, createdAt: '2025-10-01 10:10', updatedAt: '2025-12-28 10:00' },
+
+  { id: 'cat_product_detail', name: '商品详情', parentId: 'cat_product_query', order: 1, createdAt: '2025-10-01 10:10', updatedAt: '2025-12-28 10:00' },
+  { id: 'cat_product_search', name: '商品搜索', parentId: 'cat_product_query', order: 2, createdAt: '2025-10-01 10:10', updatedAt: '2025-12-28 10:00' },
+
+  { id: 'cat_user_profile', name: '用户画像', parentId: 'cat_user_info', order: 1, createdAt: '2025-10-01 10:10', updatedAt: '2025-12-28 10:00' },
+
+  { id: 'cat_inventory_update', name: '库存更新', parentId: 'cat_inventory_manage', order: 1, createdAt: '2025-10-01 10:10', updatedAt: '2025-12-28 10:00' },
+  { id: 'cat_maxcompute', name: 'MaxCompute', parentId: null, order: 5, createdAt: '2026-01-01 10:00', updatedAt: '2026-01-01 10:00' },
+];
+
+let categoryLinks: CategoryLinkRecord[] = [
+  { itemType: 'api', itemId: '1', categoryId: 'cat_order_user_orders' },
+  { itemType: 'api', itemId: '2', categoryId: 'cat_order_detail' },
+  { itemType: 'api', itemId: '3', categoryId: 'cat_order_create' },
+  { itemType: 'api', itemId: '4', categoryId: 'cat_product_detail' },
+  { itemType: 'api', itemId: '5', categoryId: 'cat_product_search' },
+  { itemType: 'api', itemId: '6', categoryId: 'cat_user_profile' },
+  { itemType: 'api', itemId: '7', categoryId: 'cat_inventory_update' },
+
+  { itemType: 'dataset', itemId: '1', categoryId: 'cat_order_user_orders' },
+  { itemType: 'dataset', itemId: '2', categoryId: 'cat_product_detail' },
+  { itemType: 'dataset', itemId: '2', categoryId: 'cat_product_search' },
+  { itemType: 'dataset', itemId: '3', categoryId: 'cat_user_profile' },
+  { itemType: 'dataset', itemId: '4', categoryId: 'cat_inventory_update' },
+  { itemType: 'dataset', itemId: 'mc_1', categoryId: 'cat_maxcompute' },
+  { itemType: 'dataset', itemId: 'mc_2', categoryId: 'cat_maxcompute' },
+];
+
 const datasets = [
   {
     id: '1',
@@ -12,8 +72,44 @@ const datasets = [
     masked: 3,
     rowCount: '1.2M',
     lastUpdate: '2025-12-28',
+    createdAt: '2025-10-15 14:30',
+    updatedAt: '2025-12-28 09:15',
     relatedAPIs: ['getUserOrders', 'getOrderDetail', 'createOrder'],
     description: '存储所有用户订单信息，包括订单状态、金额、时间等核心字段',
+  },
+  {
+    id: 'mc_1',
+    name: 'ods_user_log_di',
+    alias: '用户日志ODS表',
+    source: 'MaxCompute',
+    domain: '用户域',
+    tags: ['日志', 'ODS'],
+    fields: 120,
+    masked: 10,
+    rowCount: '500M',
+    lastUpdate: '2026-01-01',
+    createdAt: '2026-01-01 00:00',
+    updatedAt: '2026-01-01 12:00',
+    relatedAPIs: [],
+    description: '用户行为日志原始数据表',
+    project: 'data_center_prod',
+  },
+  {
+    id: 'mc_2',
+    name: 'dwd_order_detail_di',
+    alias: '订单明细DWD表',
+    source: 'MaxCompute',
+    domain: '订单域',
+    tags: ['明细', 'DWD'],
+    fields: 45,
+    masked: 5,
+    rowCount: '100M',
+    lastUpdate: '2026-01-01',
+    createdAt: '2026-01-01 02:00',
+    updatedAt: '2026-01-01 14:00',
+    relatedAPIs: [],
+    description: '订单明细事实表',
+    project: 'data_center_prod',
   },
   {
     id: '2',
@@ -26,6 +122,8 @@ const datasets = [
     masked: 0,
     rowCount: '45K',
     lastUpdate: '2025-12-28',
+    createdAt: '2025-09-22 10:15',
+    updatedAt: '2025-12-28 09:15',
     relatedAPIs: ['getProductInfo', 'searchProducts'],
     description: '商品基础信息表，包含商品名称、价格、库存等信息',
   },
@@ -40,6 +138,8 @@ const datasets = [
     masked: 8,
     rowCount: '850K',
     lastUpdate: '2025-12-27',
+    createdAt: '2025-11-15 09:20',
+    updatedAt: '2025-12-27 18:03',
     relatedAPIs: ['getCustomerProfile'],
     description: '客户画像数据，包含用户行为分析、偏好标签等敏感信息',
   },
@@ -54,6 +154,8 @@ const datasets = [
     masked: 0,
     rowCount: '320K',
     lastUpdate: '2025-12-28',
+    createdAt: '2025-10-02 11:10',
+    updatedAt: '2025-12-28 08:40',
     relatedAPIs: ['updateInventory'],
     description: '实时库存数据表，记录各仓库的商品库存量',
   },
@@ -237,6 +339,24 @@ const approvals = [
     approvedAt: '2025-12-29 15:00',
   },
   {
+    id: '3',
+    apiName: '申请访问 MaxCompute 数据包',
+    apiPath: '项目: data_center_prod',
+    type: 'access_package',
+    requester: '张三',
+    requesterAvatar: 'zhangSan',
+    team: '数据团队',
+    reason: '数据分析需求',
+    details: '申请表: ods_user_log_di, dwd_order_detail_di',
+    status: 'pending',
+    createdAt: '2026-01-01 10:00',
+    packageInfo: {
+      project: 'data_center_prod',
+      validity: 'days_30',
+      tables: ['ods_user_log_di', 'dwd_order_detail_di']
+    }
+  },
+  {
     id: '5',
     apiName: 'deleteUserData',
     apiPath: '/api/v1/users/delete',
@@ -250,6 +370,19 @@ const approvals = [
     createdAt: '2025-12-28 11:00',
     approver: '管理员',
     approvedAt: '2025-12-28 14:00',
+  },
+  {
+    id: '6',
+    apiName: 'AutoPackage-20251230',
+    apiPath: 'MaxCompute Project: company_project',
+    type: 'package_apply',
+    requester: '数据科学家',
+    requesterAvatar: 'DS',
+    team: '数据团队',
+    reason: '需要访问ODS层数据进行建模',
+    details: '申请表清单: ods_user_log, dwd_order_detail. 有效期: 30天',
+    status: 'pending',
+    createdAt: '2025-12-30 11:00',
   },
 ];
 
@@ -435,10 +568,10 @@ const dashboard = {
     { label: '今日调用', value: '45.2K', change: '+23%', icon: 'AlertCircle', color: 'text-orange-500' },
   ],
   hotApis: [
-    { name: 'getUserOrders', domain: '订单域', calls: 1234, latency: 45, status: 'healthy' },
-    { name: 'getProductInfo', domain: '商品域', calls: 5678, latency: 32, status: 'healthy' },
-    { name: 'getCustomerProfile', domain: '用户域', calls: 890, latency: 128, status: 'warning' },
-    { name: 'getInventoryData', domain: '库存域', calls: 2345, latency: 67, status: 'healthy' },
+    { id: '1', name: 'getUserOrders', domain: '订单域', calls: 1234, latency: 45, status: 'healthy' },
+    { id: '4', name: 'getProductInfo', domain: '商品域', calls: 5678, latency: 32, status: 'healthy' },
+    { id: '6', name: 'getCustomerProfile', domain: '用户域', calls: 890, latency: 128, status: 'warning' },
+    { id: '8', name: 'getInventoryData', domain: '库存域', calls: 2345, latency: 67, status: 'healthy' },
   ],
 };
 
@@ -467,5 +600,117 @@ export default [
     url: '/api/management',
     method: 'get',
     response: () => ({ code: 0, message: 'ok', data: management }),
+  },
+  {
+    url: '/api/taxonomy',
+    method: 'get',
+    response: () => ({ code: 0, message: 'ok', data: { categories, links: categoryLinks } }),
+  },
+  {
+    url: '/api/categories',
+    method: 'post',
+    response: ({ body }: { body?: unknown }) => {
+      const payload = body as Record<string, unknown> | undefined;
+      const name = String(payload?.name ?? '').trim();
+      const parentId = payload?.parentId === null || payload?.parentId === undefined ? null : String(payload.parentId);
+      const order = Number.isFinite(Number(payload?.order)) ? Number(payload?.order) : 9999;
+      if (!name) return { code: 400, message: 'name required', data: null };
+      const id = `cat_${Math.random().toString(36).slice(2, 10)}`;
+      const now = nowDate();
+      const next: CategoryRecord = { id, name, parentId, order, createdAt: now, updatedAt: now };
+      categories = [...categories, next];
+      return { code: 0, message: 'ok', data: next };
+    },
+  },
+  {
+    url: '/api/categories/:id',
+    method: 'put',
+    response: ({ body, query }: { body?: unknown; query?: Record<string, unknown> }) => {
+      const payload = body as Record<string, unknown> | undefined;
+      const id = String(query?.id ?? '').trim();
+      const idx = categories.findIndex((c) => c.id === id);
+      if (idx === -1) return { code: 404, message: 'not found', data: null };
+      const name = payload?.name === undefined ? undefined : String(payload.name).trim();
+      const parentId =
+        payload?.parentId === undefined ? undefined : payload.parentId === null ? null : String(payload.parentId);
+      const order = payload?.order === undefined ? undefined : Number(payload.order);
+      const now = nowDate();
+      categories[idx] = {
+        ...categories[idx],
+        ...(name ? { name } : {}),
+        ...(parentId !== undefined ? { parentId } : {}),
+        ...(Number.isFinite(order) ? { order } : {}),
+        updatedAt: now,
+      };
+      return { code: 0, message: 'ok', data: categories[idx] };
+    },
+  },
+  {
+    url: '/api/categories/reorder',
+    method: 'put',
+    response: ({ body }: { body?: unknown }) => {
+      const payload = body as Record<string, unknown> | undefined;
+      const parentId = payload?.parentId === null || payload?.parentId === undefined ? null : String(payload.parentId);
+      const orderedIds = Array.isArray(payload?.orderedIds) ? (payload.orderedIds as unknown[]).map(String) : [];
+      const siblings = categories.filter((c) => c.parentId === parentId).sort((a, b) => a.order - b.order);
+      const siblingIds = new Set(siblings.map((s) => s.id));
+      const normalized = orderedIds.filter((id) => siblingIds.has(id));
+      if (normalized.length !== siblings.length) return { code: 400, message: 'invalid orderedIds', data: null };
+      const now = nowDate();
+      categories = categories.map((c) => {
+        if (c.parentId !== parentId) return c;
+        const order = normalized.indexOf(c.id) + 1;
+        return { ...c, order, updatedAt: now };
+      });
+      return { code: 0, message: 'ok', data: true };
+    },
+  },
+  {
+    url: '/api/categories/move',
+    method: 'put',
+    response: ({ body }: { body?: unknown }) => {
+      const payload = body as Record<string, unknown> | undefined;
+      const ids = Array.isArray(payload?.ids) ? (payload.ids as unknown[]).map(String) : [];
+      const parentId = payload?.parentId === null || payload?.parentId === undefined ? null : String(payload.parentId);
+      const now = nowDate();
+      categories = categories.map((c) => {
+        if (!ids.includes(c.id)) return c;
+        return { ...c, parentId, updatedAt: now };
+      });
+      return { code: 0, message: 'ok', data: true };
+    },
+  },
+  {
+    url: '/api/categories',
+    method: 'delete',
+    response: ({ body }: { body?: unknown }) => {
+      const payload = body as Record<string, unknown> | undefined;
+      const ids = Array.isArray(payload?.ids) ? (payload.ids as unknown[]).map(String) : [];
+      const toDelete = new Set(ids);
+      const hasChild = (id: string) => categories.some((c) => c.parentId === id && !toDelete.has(c.id));
+      for (const id of ids) {
+        if (hasChild(id)) return { code: 400, message: 'cannot delete category with children', data: null };
+      }
+      categories = categories.filter((c) => !toDelete.has(c.id));
+      categoryLinks = categoryLinks.filter((l) => !toDelete.has(l.categoryId));
+      return { code: 0, message: 'ok', data: true };
+    },
+  },
+  {
+    url: '/api/category-links',
+    method: 'put',
+    response: ({ body }: { body?: unknown }) => {
+      const payload = body as Record<string, unknown> | undefined;
+      const itemType: CategoryLinkRecord['itemType'] | null =
+        payload?.itemType === 'api' ? 'api' : payload?.itemType === 'dataset' ? 'dataset' : null;
+      const itemId = String(payload?.itemId ?? '').trim();
+      const categoryIds = Array.isArray(payload?.categoryIds) ? (payload.categoryIds as unknown[]).map(String) : [];
+      if (!itemType || !itemId) return { code: 400, message: 'invalid payload', data: null };
+      const validCategoryId = new Set(categories.map((c) => c.id));
+      const nextIds = categoryIds.filter((id) => validCategoryId.has(id));
+      categoryLinks = categoryLinks.filter((l) => !(l.itemType === itemType && l.itemId === itemId));
+      categoryLinks = [...categoryLinks, ...nextIds.map((id) => ({ itemType, itemId, categoryId: id }))];
+      return { code: 0, message: 'ok', data: true };
+    },
   },
 ] as MockMethod[];

@@ -11,82 +11,91 @@ import { Plus, Database, CheckCircle, XCircle, Edit, Trash2 } from 'lucide-react
 interface DataSource {
   id: string;
   name: string;
-  type: 'MySQL' | 'PostgreSQL' | 'ClickHouse' | 'Oracle';
+  type: 'MySQL' | 'PostgreSQL' | 'ClickHouse' | 'Oracle' | 'MaxCompute';
   host: string;
   port: number;
   database: string;
+  username?: string;
   status: 'connected' | 'disconnected';
   lastSync: string;
   tableCount: number;
 }
 
+import { MaxComputeManager } from './MaxComputeManager';
+
 export function DataSources() {
   const [dataSources, setDataSources] = useState<DataSource[]>([
-    {
-      id: '1',
-      name: '生产数据库',
-      type: 'MySQL',
-      host: '10.0.1.100',
-      port: 3306,
-      database: 'prod_db',
-      status: 'connected',
-      lastSync: '2025-12-28 10:30',
-      tableCount: 45,
-    },
-    {
-      id: '2',
-      name: '数据仓库',
-      type: 'ClickHouse',
-      host: '10.0.2.50',
-      port: 9000,
-      database: 'dw_analytics',
-      status: 'connected',
-      lastSync: '2025-12-28 09:15',
-      tableCount: 128,
-    },
-    {
-      id: '3',
-      name: '测试环境',
-      type: 'PostgreSQL',
-      host: '10.0.3.20',
-      port: 5432,
-      database: 'test_db',
-      status: 'disconnected',
-      lastSync: '2025-12-27 18:00',
-      tableCount: 23,
-    },
+    // ...
   ]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'MySQL' as DataSource['type'],
-    host: '',
-    port: '',
-    database: '',
-    username: '',
-    password: '',
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [maxComputeManagerOpen, setMaxComputeManagerOpen] = useState(false);
+  const [selectedMaxComputeId, setSelectedMaxComputeId] = useState<string | null>(null);
+  // ...
+
+  const handleOpenMaxCompute = (id: string) => {
+    setSelectedMaxComputeId(id);
+    setMaxComputeManagerOpen(true);
+  };
+
+  // ...
+  
 
   const handleTestConnection = () => {
+    if (!formData.host || !formData.port) {
+      alert('请输入主机地址和端口');
+      return;
+    }
     // Simulate connection test
     alert('连接测试成功！');
   };
 
-  const handleCreateDataSource = () => {
-    const newDataSource: DataSource = {
-      id: Date.now().toString(),
-      name: formData.name,
-      type: formData.type,
-      host: formData.host,
-      port: parseInt(formData.port),
-      database: formData.database,
-      status: 'connected',
-      lastSync: new Date().toLocaleString('zh-CN'),
-      tableCount: 0,
-    };
-    setDataSources([...dataSources, newDataSource]);
+  const handleSaveDataSource = () => {
+    // Validation
+    if (!formData.name || !formData.host || !formData.port || !formData.database) {
+      alert('请填写所有必填字段');
+      return;
+    }
+
+    if (editingId) {
+      // Update existing
+      setDataSources(dataSources.map(ds => 
+        ds.id === editingId 
+          ? {
+              ...ds,
+              name: formData.name,
+              type: formData.type,
+              host: formData.host,
+              port: parseInt(formData.port),
+              database: formData.database,
+              username: formData.username,
+            }
+          : ds
+      ));
+    } else {
+      // Create new
+      const newDataSource: DataSource = {
+        id: Date.now().toString(),
+        name: formData.name,
+        type: formData.type,
+        host: formData.host,
+        port: parseInt(formData.port),
+        database: formData.database,
+        username: formData.username,
+        status: 'connected',
+        lastSync: new Date().toLocaleString('zh-CN'),
+        tableCount: 0,
+      };
+      setDataSources([...dataSources, newDataSource]);
+    }
+    
     setIsDialogOpen(false);
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
     setFormData({
       name: '',
       type: 'MySQL',
@@ -97,6 +106,21 @@ export function DataSources() {
       password: '',
     });
   };
+
+  const handleEdit = (source: DataSource) => {
+    setEditingId(source.id);
+    setFormData({
+      name: source.name,
+      type: source.type,
+      host: source.host,
+      port: source.port.toString(),
+      database: source.database,
+      username: source.username || '',
+      password: '', // Don't fill password
+    });
+    setIsDialogOpen(true);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -114,7 +138,7 @@ export function DataSources() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>添加数据源</DialogTitle>
+              <DialogTitle>{editingId ? '编辑数据源' : '添加数据源'}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
@@ -140,6 +164,7 @@ export function DataSources() {
                       <SelectItem value="PostgreSQL">PostgreSQL</SelectItem>
                       <SelectItem value="ClickHouse">ClickHouse</SelectItem>
                       <SelectItem value="Oracle">Oracle</SelectItem>
+                      <SelectItem value="MaxCompute">MaxCompute</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -197,8 +222,8 @@ export function DataSources() {
                 <Button variant="outline" onClick={handleTestConnection}>
                   测试连接
                 </Button>
-                <Button onClick={handleCreateDataSource} className="flex-1">
-                  创建数据源
+                <Button onClick={handleSaveDataSource} className="flex-1">
+                  {editingId ? '保存修改' : '创建数据源'}
                 </Button>
               </div>
             </div>
@@ -246,7 +271,12 @@ export function DataSources() {
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1"
+                onClick={() => handleEdit(source)}
+              >
                 <Edit className="size-3 mr-1" />
                 编辑
               </Button>
@@ -260,6 +290,12 @@ export function DataSources() {
           </Card>
         ))}
       </div>
+
+      <MaxComputeManager 
+        isOpen={maxComputeManagerOpen}
+        onClose={() => setMaxComputeManagerOpen(false)}
+        dataSourceId={selectedMaxComputeId || ''}
+      />
     </div>
   );
 }

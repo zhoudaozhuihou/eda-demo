@@ -4,6 +4,8 @@ import { datasetsReducer } from '@/features/datasets/store';
 import { apiCatalogReducer } from '@/features/api-catalog/store';
 import { approvalReducer } from '@/features/approval/store';
 import { managementReducer } from '@/features/management/store';
+import { categoriesReducer } from '@/features/categories/store';
+import { auditReducer } from '@/features/audit-logs/store';
 
 type PreloadedState<T> = Partial<T>;
 
@@ -13,6 +15,8 @@ const rootReducer = {
   apiCatalog: apiCatalogReducer,
   approval: approvalReducer,
   management: managementReducer,
+  categories: categoriesReducer,
+  audit: auditReducer,
 };
 
 const reducer = combineReducers(rootReducer);

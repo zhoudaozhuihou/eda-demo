@@ -1,0 +1,283 @@
+{
+  "title": "管理中心",
+  "subtitle": "管理团队、成员、连接和权限",
+  "tabs": {
+    "connections": "连接管理",
+    "teams": "团队管理",
+    "members": "成员管理",
+    "roles": "角色管理",
+    "roleGroups": "角色组管理",
+    "categories": "分类管理"
+  },
+  "actions": {
+    "cancel": "取消",
+    "save": "保存"
+  },
+  "pagination": {
+    "total": "共 {{count}} 条",
+    "perPage": "每页",
+    "pageSize": "{{count}} 条"
+  },
+  "toasts": {
+    "noConnectionPermission": "当前账号无连接管理权限",
+    "fixFormErrorsFirst": "请先修正表单错误",
+    "completeConnectionTestFirst": "请先完成连接测试并通过",
+    "connectionTestSuccess": "连接测试通过",
+    "connectionTestFailed": "连接测试失败，请检查参数",
+    "connectionTestSuccessWithName": "连接测试通过：{{name}}",
+    "connectionTestFailedWithName": "连接测试失败：{{name}}",
+    "connectionAdded": "连接已添加",
+    "connectionRemoved": "连接已删除"
+  },
+  "connection": {
+    "status": {
+      "testingInline": "测试中...",
+      "testFailed": "测试失败"
+    }
+  },
+  "categories": {
+    "searchPlaceholder": "搜索分类...",
+    "root": "根目录",
+    "rootDrop": "拖拽到这里移动到根目录",
+    "empty": "暂无分类",
+    "fields": {
+      "name": "名称",
+      "parent": "父级分类"
+    },
+    "placeholders": {
+      "selectParent": "选择父级"
+    },
+    "labels": {
+      "moveTo": "移动到",
+      "apiCount": "{{count}} 个 API",
+      "datasetCount": "{{count}} 个数据集"
+    },
+    "actions": {
+      "addRoot": "新增一级",
+      "addChild": "新增子级",
+      "rename": "重命名",
+      "delete": "删除",
+      "deleteSelected": "删除所选",
+      "move": "移动",
+      "create": "创建",
+      "select": "选择",
+      "drag": "拖拽",
+      "expand": "展开",
+      "collapse": "收起"
+    },
+    "dialogs": {
+      "createTitle": "创建分类",
+      "renameTitle": "重命名分类"
+    },
+    "toasts": {
+      "nameRequired": "请输入分类名称",
+      "createFailed": "创建分类失败",
+      "renameFailed": "重命名失败",
+      "deleteFailed": "删除失败",
+      "moveFailed": "移动失败",
+      "reorderFailed": "排序失败",
+      "invalidMove": "移动目标不合法",
+      "cannotDeleteWithChildren": "包含子分类时无法删除"
+    }
+  },
+  "connections": {
+    "searchPlaceholder": "搜索连接...",
+    "add": "添加连接",
+    "test": "测试连接",
+    "empty": "没有找到匹配的连接",
+    "fields": {
+      "host": "主机",
+      "port": "端口",
+      "database": "数据库",
+      "lastSync": "最后同步"
+    },
+    "status": {
+      "connected": "已连接",
+      "testing": "测试中",
+      "error": "连接失败"
+    },
+    "addDialog": {
+      "title": "添加连接"
+    },
+    "reference": {
+      "title": "支持的数据源类型",
+      "groups": {
+        "relational": "关系型数据库",
+        "olap": "OLAP 数据库",
+        "nosql": "NoSQL 数据库",
+        "cloud": "云数据平台"
+      }
+    }
+  },
+  "connectionForm": {
+    "fields": {
+      "name": "连接名称",
+      "type": "数据库类型",
+      "port": "端口",
+      "descriptionOptional": "描述（可选）"
+    },
+    "labels": {
+      "host": "主机地址",
+      "database": "数据库/实例标识",
+      "username": "用户名/账号",
+      "password": "密码",
+      "hostByType": {
+        "dynamo": "Endpoint/Region",
+        "bigquery": "Host",
+        "maxcompute": "Host",
+        "databricks": "Host"
+      },
+      "databaseByType": {
+        "oracle": "Service Name/SID",
+        "snowflake": "数据库/Schema",
+        "redis": "DB Index",
+        "cassandra": "Keyspace",
+        "dynamo": "表前缀/命名空间",
+        "bigquery": "Project.Dataset",
+        "maxcompute": "Project",
+        "databricks": "Workspace/SQL Warehouse"
+      },
+      "usernameByType": {
+        "bigquery": "Service Account",
+        "maxcompute": "AccessKey ID",
+        "dynamo": "AccessKey ID",
+        "databricks": "Token/账号",
+        "redis": "用户名（可选）"
+      },
+      "passwordByType": {
+        "bigquery": "密钥（可选）",
+        "maxcompute": "AccessKey Secret",
+        "dynamo": "SecretAccessKey",
+        "databricks": "Token"
+      }
+    },
+    "placeholders": {
+      "name": "例：生产数据库",
+      "host": "请输入主机地址",
+      "database": "请输入数据库/实例标识",
+      "username": "请输入账号",
+      "password": "请输入凭证",
+      "port": "例：5432",
+      "description": "简单描述该连接用途，便于团队理解与管理",
+      "hostByType": {
+        "mysql": "例：mysql.company.com",
+        "postgresql": "例：postgres.company.com",
+        "oracle": "例：oracle.company.com",
+        "sqlserver": "例：sqlserver.company.com",
+        "clickhouse": "例：clickhouse.company.com",
+        "snowflake": "例：xxx.snowflakecomputing.com",
+        "redshift": "例：xxx.redshift.amazonaws.com",
+        "mongodb": "例：mongo.company.com",
+        "redis": "例：redis.company.com",
+        "cassandra": "例：cassandra.company.com",
+        "dynamo": "例：dynamodb.ap-southeast-1.amazonaws.com",
+        "bigquery": "bigquery.googleapis.com",
+        "maxcompute": "maxcompute.aliyun.com",
+        "databricks": "例：dbc-xxx.cloud.databricks.com"
+      },
+      "databaseByType": {
+        "bigquery": "例：company-project.analytics",
+        "maxcompute": "例：company_project",
+        "redis": "例：0",
+        "snowflake": "例：analytics.public",
+        "oracle": "例：ORCL"
+      }
+    },
+    "ssl": {
+      "enabled": "已启用",
+      "disabled": "未启用"
+    },
+    "testHint": {
+      "idle": "请先进行连接测试",
+      "testing": "正在测试连接...",
+      "success": "连接测试通过，可以保存",
+      "error": "连接测试失败，请检查参数"
+    },
+    "validation": {
+      "nameRequired": "请输入连接名称",
+      "hostRequired": "请输入主机地址",
+      "portRequired": "请输入端口",
+      "portNumeric": "端口必须为数字",
+      "databaseRequired": "请输入数据库/实例标识",
+      "usernameRequired": "请输入用户名/账号"
+    }
+  },
+  "teams": {
+    "searchPlaceholder": "搜索团队...",
+    "create": "创建团队",
+    "viewMembers": "查看成员",
+    "empty": "没有找到匹配的团队",
+    "fields": {
+      "members": "成员数",
+      "apis": "API 数"
+    }
+  },
+  "members": {
+    "searchPlaceholder": "搜索成员...",
+    "invite": "邀请成员",
+    "empty": "没有找到匹配的成员",
+    "status": {
+      "active": "活跃",
+      "inactive": "未激活"
+    }
+  },
+  "roles": {
+    "searchPlaceholder": "搜索角色...",
+    "create": "创建角色",
+    "systemRole": "系统角色",
+    "permissionsList": "权限列表",
+    "userCount": "{{count}} 个用户",
+    "viewUsers": "查看用户",
+    "empty": "没有找到匹配的角色",
+    "permissionsReference": {
+      "title": "可用权限列表",
+      "groups": {
+        "api": "API 管理",
+        "data": "数据管理",
+        "approval": "审核管理",
+        "system": "系统管理",
+        "ops": "监控运维"
+      },
+      "items": {
+        "api": {
+          "create": "创建API",
+          "edit": "编辑API",
+          "delete": "删除API",
+          "view": "查看API",
+          "test": "测试API",
+          "publish": "发布API"
+        },
+        "data": {
+          "viewDatasets": "查看数据集",
+          "editDatasets": "编辑数据集",
+          "manageConnections": "管理连接",
+          "viewData": "查看数据"
+        },
+        "approval": {
+          "approveApi": "审批API",
+          "viewHistory": "查看审核记录",
+          "revoke": "撤回审批"
+        },
+        "system": {
+          "userManagement": "用户管理",
+          "roleManagement": "角色管理",
+          "settings": "系统配置",
+          "viewLogs": "查看日志"
+        },
+        "ops": {
+          "viewMonitoring": "查看监控",
+          "viewAlerts": "查看告警",
+          "performance": "性能分析"
+        }
+      }
+    }
+  },
+  "roleGroups": {
+    "searchPlaceholder": "搜索角色组...",
+    "create": "创建角色组",
+    "includedRoles": "包含角色",
+    "userCount": "{{count}} 个用户",
+    "manageMembers": "管理成员",
+    "empty": "没有找到匹配的角色组"
+  }
+}

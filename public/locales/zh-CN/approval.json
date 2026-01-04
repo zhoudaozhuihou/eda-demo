@@ -1,0 +1,118 @@
+{
+  "page": {
+    "title": "审核中心",
+    "subtitle": "管理 API 生命周期审批流程"
+  },
+  "stats": {
+    "pending": "待审核",
+    "approved": "已批准",
+    "rejected": "已拒绝"
+  },
+  "tabs": {
+    "pending": "待审核（{{count}}）",
+    "approved": "已批准（{{count}}）",
+    "rejected": "已拒绝（{{count}}）",
+    "all": "全部（{{count}}）"
+  },
+  "search": {
+    "placeholder": "搜索 API 名称或申请人..."
+  },
+  "selection": {
+    "selectAll": "全选",
+    "invert": "反选",
+    "selected": "已选 {{selected}} / {{total}}"
+  },
+  "actions": {
+    "batchReject": "批量拒绝",
+    "batchApprove": "批量批准",
+    "viewDetail": "查看详情",
+    "cancel": "取消",
+    "reject": "拒绝",
+    "approve": "批准"
+  },
+  "pagination": {
+    "total": "共 {{count}} 条",
+    "perPage": "每页",
+    "perPageCount": "{{count}} 条"
+  },
+  "dialog": {
+    "title": "审核详情"
+  },
+  "workflow": {
+    "title": "审批流程",
+    "status": {
+      "inProgress": "进行中",
+      "completed": "已结束"
+    },
+    "steps": {
+      "submitRequest": "提交申请",
+      "platformReview": "平台审核"
+    },
+    "stepStatus": {
+      "pending": "待处理",
+      "approved": "通过",
+      "rejected": "拒绝"
+    }
+  },
+  "labels": {
+    "approver": "审批人",
+    "time": "时间",
+    "comment": "意见"
+  },
+  "detail": {
+    "requester": {
+      "label": "申请人"
+    },
+    "requestTime": {
+      "label": "申请时间"
+    },
+    "reason": {
+      "label": "申请原因"
+    },
+    "details": {
+      "label": "详细说明"
+    },
+    "package": {
+      "project": "目标项目",
+      "validity": "有效期",
+      "tables": "申请表单"
+    },
+    "result": {
+      "label": "审核结果",
+      "approver": "审核人",
+      "time": "审核时间"
+    },
+    "comment": {
+      "label": "审核意见",
+      "placeholder": "请输入审核意见（可选）"
+    }
+  },
+  "requestTypes": {
+    "publish": "上线",
+    "update": "更新",
+    "deprecate": "下线",
+    "delete": "删除",
+    "access_package": "权限包申请"
+  },
+  "statuses": {
+    "pending": "待审核",
+    "approved": "已批准",
+    "rejected": "已拒绝"
+  },
+  "actors": {
+    "admin": "管理员"
+  },
+  "placeholders": {
+    "dash": "—"
+  },
+  "toasts": {
+    "approved": "批准成功",
+    "rejected": "拒绝成功",
+    "batchApproved": "批量批准成功：{{count}} 项",
+    "batchRejected": "批量拒绝完成：{{count}} 项",
+    "errors": {
+      "noPermission": "当前账号无审批权限",
+      "selectAtLeastOne": "请先选择要操作的审批项"
+    }
+  }
+}

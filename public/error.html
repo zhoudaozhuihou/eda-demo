@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Error - API Platform</title>
+  <style>
+    :root {
+      --primary: #030213;
+      --text: #333333;
+      --muted: #717182;
+      --bg: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --primary: #e0e0e0;
+        --text: #e0e0e0;
+        --muted: #a3a3a3;
+        --bg: #121212;
+      }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+      max-width: 600px;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    p {
+      color: var(--muted);
+      margin-bottom: 2rem;
+      line-height: 1.5;
+    }
+    .btn {
+      display: inline-block;
+      background-color: var(--primary);
+      color: var(--bg);
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      text-decoration: none;
+      font-weight: 500;
+      transition: opacity 0.2s;
+    }
+    .btn:hover {
+      opacity: 0.9;
+    }
+    .icon {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 1.5rem;
+      color: #d4183d;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+    <h1 id="title">System Error</h1>
+    <p id="message">Sorry, we encountered an unexpected error.<br>Please try again later or contact support.</p>
+    <div style="display: flex; gap: 1rem; justify-content: center;">
+      <a href="/" class="btn" id="home">Back to Home</a>
+      <a href="mailto:support@example.com" class="btn" style="background-color: transparent; border: 1px solid var(--muted); color: var(--text);" id="support">Contact Support</a>
+    </div>
+  </div>
+  <script>
+    const i18n = {
+      'zh': {
+        title: '系统遇到问题',
+        message: '抱歉，系统暂时无法处理您的请求。<br>请稍后再试，或联系管理员寻求帮助。',
+        home: '返回首页',
+        support: '联系客服'
+      },
+      'en': {
+        title: 'System Error',
+        message: 'Sorry, we encountered an unexpected error.<br>Please try again later or contact support.',
+        home: 'Back to Home',
+        support: 'Contact Support'
+      }
+    };
+
+    const lang = navigator.language.startsWith('zh') ? 'zh' : 'en';
+    const t = i18n[lang];
+
+    document.getElementById('title').innerText = t.title;
+    document.getElementById('message').innerHTML = t.message;
+    document.getElementById('home').innerText = t.home;
+    document.getElementById('support').innerText = t.support;
+  </script>
+</body>
+</html>

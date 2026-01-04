@@ -28,6 +28,7 @@ const seedApis: ApiCatalogApi[] = [
 function renderCatalog() {
   const store = createAppStore({
     apiCatalog: { items: seedApis, status: 'succeeded', error: null },
+    categories: { taxonomy: null, status: 'succeeded', error: null, fetchedAt: Date.now() },
   });
   return render(
     <Provider store={store}>
@@ -53,4 +54,3 @@ describe('APICatalog i18n', () => {
     expect(screen.getByRole('button', { name: '导出文档' })).toBeInTheDocument();
   });
 });
-

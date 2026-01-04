@@ -60,10 +60,11 @@ export function ensureI18n() {
       lng: getInitialLanguage(),
       fallbackLng: defaultLanguage,
       supportedLngs: supportedLanguages,
-      ns: namespaces as unknown as string[],
+      ns: ['common', 'app'],
       defaultNS: 'common',
+      fallbackNS: 'common',
       backend: {
-        loadPath: '/{{lng}}/{{ns}}.json',
+        loadPath: '/locales/{{lng}}/{{ns}}.json',
       },
       load: 'currentOnly',
       returnNull: false,
@@ -96,4 +97,3 @@ export function ensureI18n() {
 ensureI18n();
 
 export default i18n;
-

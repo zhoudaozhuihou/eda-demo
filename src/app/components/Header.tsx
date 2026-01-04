@@ -38,7 +38,31 @@ type NotificationItem = {
 
 const notificationStorageKey = 'eda-platform-notifications';
 
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Switch } from './ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+
+// ... existing imports
+
 export function Header({ onToggleSidebar }: HeaderProps) {
+  // ... existing state
+  const [showProfile, setShowProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+
+  const handleLogout = () => {
+    if (confirm('确定要退出登录吗？')) {
+      // Clear session (mock)
+      localStorage.clear();
+      window.location.reload();
+    }
+  };
+
+  // ... render ...
+  // Update DropdownMenuItem onClick handlers
+  // Add Dialogs at the end
+
   const { t, i18n } = useTranslation(['common', 'app']);
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -441,20 +465,20 @@ export function Header({ onToggleSidebar }: HeaderProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setShowProfile(true)}>
               <User className="size-4 mr-2" />
               {t('app:userMenu.profile')}
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setShowSettings(true)}>
               <Settings className="size-4 mr-2" />
               {t('app:userMenu.settings')}
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setShowHelp(true)}>
               <HelpCircle className="size-4 mr-2" />
               {t('app:userMenu.help')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600">
+            <DropdownMenuItem className="text-red-600" onSelect={handleLogout}>
               <LogOut className="size-4 mr-2" />
               {t('app:userMenu.logout')}
             </DropdownMenuItem>
@@ -525,6 +549,106 @@ export function Header({ onToggleSidebar }: HeaderProps) {
               {t('app:actions.close')}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Profile Dialog */}
+      <Dialog open={showProfile} onOpenChange={setShowProfile}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('app:userMenu.profile')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="size-20">
+                <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=John" />
+                <AvatarFallback>JD</AvatarFallback>
+              </Avatar>
+              <div>
+                <h3 className="text-lg font-medium">张三</h3>
+                <p className="text-sm text-muted-foreground">zhangsan@company.com</p>
+                <Badge variant="outline" className="mt-2">{t('app:user.roles.admin')}</Badge>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>用户名</Label>
+              <Input value="张三" readOnly />
+            </div>
+            <div className="space-y-2">
+              <Label>邮箱</Label>
+              <Input value="zhangsan@company.com" readOnly />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Dialog */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('app:userMenu.settings')}</DialogTitle>
+          </DialogHeader>
+          <Tabs defaultValue="general">
+            <TabsList className="w-full">
+              <TabsTrigger value="general" className="flex-1">通用设置</TabsTrigger>
+              <TabsTrigger value="account" className="flex-1">账号安全</TabsTrigger>
+            </TabsList>
+            <TabsContent value="general" className="space-y-4 py-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>深色模式</Label>
+                  <p className="text-sm text-muted-foreground">切换系统外观主题</p>
+                </div>
+                <Switch 
+                  checked={isDark}
+                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>桌面通知</Label>
+                  <p className="text-sm text-muted-foreground">启用或禁用浏览器通知</p>
+                </div>
+                <Switch defaultChecked />
+              </div>
+            </TabsContent>
+            <TabsContent value="account" className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>当前密码</Label>
+                <Input type="password" />
+              </div>
+              <div className="space-y-2">
+                <Label>新密码</Label>
+                <Input type="password" />
+              </div>
+              <Button>修改密码</Button>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Help Dialog */}
+      <Dialog open={showHelp} onOpenChange={setShowHelp}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('app:userMenu.help')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-4">
+              <a href="#" className="flex items-center justify-between p-4 border rounded hover:bg-accent">
+                <div className="font-medium">用户手册</div>
+                <Badge>PDF</Badge>
+              </a>
+              <a href="#" className="flex items-center justify-between p-4 border rounded hover:bg-accent">
+                <div className="font-medium">常见问题 (FAQ)</div>
+                <Badge variant="outline">Web</Badge>
+              </a>
+              <a href="#" className="flex items-center justify-between p-4 border rounded hover:bg-accent">
+                <div className="font-medium">联系支持</div>
+                <span className="text-sm text-muted-foreground">support@example.com</span>
+              </a>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </header>

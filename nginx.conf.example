@@ -1,0 +1,46 @@
+# Server Configuration Example
+# This is an example of how to configure your web server (Nginx/Apache) 
+# to use the static error pages provided in the /public directory.
+
+# ==========================================
+# Nginx Configuration
+# ==========================================
+# server {
+#     listen 80;
+#     server_name example.com;
+#     root /var/www/html;
+#     index index.html;
+#
+#     # Handle 404 errors
+#     error_page 404 /404.html;
+#     location = /404.html {
+#         internal;
+#     }
+#
+#     # Handle 50x errors
+#     error_page 500 502 503 504 /error.html;
+#     location = /error.html {
+#         internal;
+#     }
+#
+#     # SPA Routing (React/Vite)
+#     location / {
+#         try_files $uri $uri/ /index.html;
+#     }
+# }
+
+# ==========================================
+# Apache Configuration (.htaccess)
+# ==========================================
+# ErrorDocument 404 /404.html
+# ErrorDocument 500 /error.html
+# ErrorDocument 503 /error.html
+#
+# <IfModule mod_rewrite.c>
+#   RewriteEngine On
+#   RewriteBase /
+#   RewriteRule ^index\.html$ - [L]
+#   RewriteCond %{REQUEST_FILENAME} !-f
+#   RewriteCond %{REQUEST_FILENAME} !-d
+#   RewriteRule . /index.html [L]
+# </IfModule>

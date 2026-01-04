@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { formatDateTime } from '@/i18n/format';
 
 export function Approval() {
-  const { t, i18n } = useTranslation('approval');
+  const { t, i18n } = useTranslation(['approval', 'datasets']);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [approvalComment, setApprovalComment] = useState('');
@@ -57,6 +57,7 @@ export function Approval() {
       case 'update': return t('requestTypes.update');
       case 'deprecate': return t('requestTypes.deprecate');
       case 'delete': return t('requestTypes.delete');
+      case 'access_package': return t('requestTypes.access_package');
       default: return type;
     }
   };
@@ -67,6 +68,7 @@ export function Approval() {
       case 'update': return 'bg-blue-100 text-blue-700';
       case 'deprecate': return 'bg-orange-100 text-orange-700';
       case 'delete': return 'bg-red-100 text-red-700';
+      case 'access_package': return 'bg-purple-100 text-purple-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -631,7 +633,32 @@ export function Approval() {
               <div>
                 <div className="text-sm text-muted-foreground mb-1">{t('detail.details.label')}</div>
                 <Card className="p-4 bg-muted">
-                  <p className="text-sm">{selectedRequest.details}</p>
+                  {selectedRequest.type === 'access_package' && selectedRequest.packageInfo ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-sm font-medium mb-1">{t('detail.package.project')}</div>
+                          <div>{selectedRequest.packageInfo.project}</div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium mb-1">{t('detail.package.validity')}</div>
+                          <div>{t(`datasets:apply.${selectedRequest.packageInfo.validity}`)}</div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium mb-1">{t('detail.package.tables')}</div>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedRequest.packageInfo.tables.map((table) => (
+                            <Badge key={table} variant="outline" className="bg-background">
+                              {table}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm">{selectedRequest.details}</p>
+                  )}
                 </Card>
               </div>
 
@@ -705,6 +732,7 @@ function ApprovalCard({
       case 'update': return t('requestTypes.update');
       case 'deprecate': return t('requestTypes.deprecate');
       case 'delete': return t('requestTypes.delete');
+      case 'access_package': return t('requestTypes.access_package');
       default: return type;
     }
   };
@@ -715,6 +743,7 @@ function ApprovalCard({
       case 'update': return 'bg-blue-100 text-blue-700';
       case 'deprecate': return 'bg-orange-100 text-orange-700';
       case 'delete': return 'bg-red-100 text-red-700';
+      case 'access_package': return 'bg-purple-100 text-purple-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };

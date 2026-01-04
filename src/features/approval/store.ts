@@ -23,6 +23,9 @@ const approvalSlice = createSlice({
       if (idx === -1) return;
       state.items[idx] = { ...state.items[idx], ...action.payload.patch };
     },
+    approvalAdded: (state, action: PayloadAction<ApprovalRequest>) => {
+      state.items.unshift(action.payload);
+    },
   },
   extraReducers: (builder) => {
     builder

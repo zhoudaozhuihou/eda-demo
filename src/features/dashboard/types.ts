@@ -7,6 +7,7 @@ export type DashboardStat = {
 };
 
 export type DashboardHotApi = {
+  id: string;
   name: string;
   domain: string;
   calls: number;
