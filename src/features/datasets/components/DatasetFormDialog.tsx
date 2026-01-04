@@ -20,7 +20,7 @@ const defaultForm: Partial<Dataset> = {
   domain: 'logistics',
   description: '',
   tags: [],
-  fields: 0,
+  fields: 1,
   rowCount: '',
   source: 'maxcompute',
   project: '',
@@ -113,6 +113,7 @@ export function DatasetFormDialog({ open, onOpenChange, initialData, onSave }: D
             <div className="text-sm">{t('form.labels.name')}</div>
             <Input
               value={form.name}
+              placeholder={t('form.placeholders.name')}
               onChange={(e) => {
                 setForm((p) => ({ ...p, name: e.target.value }));
                 if (errors.name) setErrors((p) => ({ ...p, name: '' }));
@@ -124,6 +125,7 @@ export function DatasetFormDialog({ open, onOpenChange, initialData, onSave }: D
             <div className="text-sm">{t('form.labels.alias')}</div>
             <Input
               value={form.alias}
+              placeholder={t('form.placeholders.alias')}
               onChange={(e) => {
                 setForm((p) => ({ ...p, alias: e.target.value }));
                 if (errors.alias) setErrors((p) => ({ ...p, alias: '' }));
@@ -135,6 +137,7 @@ export function DatasetFormDialog({ open, onOpenChange, initialData, onSave }: D
             <div className="text-sm">{t('form.labels.source')}</div>
             <Input
               value={form.source}
+              placeholder={t('form.placeholders.source')}
               onChange={(e) => {
                 setForm((p) => ({ ...p, source: e.target.value }));
                 if (errors.source) setErrors((p) => ({ ...p, source: '' }));
@@ -187,6 +190,7 @@ export function DatasetFormDialog({ open, onOpenChange, initialData, onSave }: D
             <div className="text-sm">{t('form.labels.rowCount')}</div>
             <Input
               value={form.rowCount}
+              placeholder={t('form.placeholders.rowCount')}
               onChange={(e) => {
                 setForm((p) => ({ ...p, rowCount: e.target.value }));
                 if (errors.rowCount) setErrors((p) => ({ ...p, rowCount: '' }));
@@ -218,7 +222,7 @@ export function DatasetFormDialog({ open, onOpenChange, initialData, onSave }: D
           >
             {t('actions.cancel')}
           </Button>
-          <Button onClick={handleSave}>{t('actions.save')}</Button>
+          <Button onClick={handleSave}>{initialData ? t('actions.save') : t('actions.create')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

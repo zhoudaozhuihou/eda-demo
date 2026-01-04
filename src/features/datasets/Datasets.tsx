@@ -20,6 +20,7 @@ import { logAdded } from '@/features/audit-logs/store';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Label } from '@/app/components/ui/label';
 import { DatasetFormDialog } from './components/DatasetFormDialog';
+import { DatasetDetailContent } from './DatasetDetailContent';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 
 
@@ -49,6 +50,7 @@ export function Datasets() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editTargetId, setEditTargetId] = useState<string | null>(null);
+  const [detailDatasetId, setDetailDatasetId] = useState<string | null>(null);
   const [selectedDatasets, setSelectedDatasets] = useState<Set<string>>(new Set());
   const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
   const [applyForm, setApplyForm] = useState({
@@ -194,14 +196,7 @@ export function Datasets() {
   };
 
   const showDetail = (dataset: Dataset) => {
-    window.dispatchEvent(
-      new CustomEvent('eda:navigate', {
-        detail: {
-          view: 'dataset-details',
-          params: { id: dataset.id },
-        },
-      }),
-    );
+    setDetailDatasetId(dataset.id);
   };
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
@@ -437,6 +432,32 @@ export function Datasets() {
       );
     });
   };
+
+  const detailDataset = detailDatasetId ? datasets.find((d) => d.id === detailDatasetId) ?? null : null;
+
+  if (detailDatasetId && detailDataset) {
+    return (
+      <div className="p-6 h-full overflow-auto bg-background">
+        <DatasetDetailContent
+          dataset={detailDataset}
+          onBack={() => setDetailDatasetId(null)}
+          canEdit={canEditDatasets}
+          canCreateAPI={true}
+          onEdit={() => openEdit(detailDataset)}
+        />
+
+        <DatasetFormDialog
+          open={isEditOpen}
+          onOpenChange={(open) => {
+            setIsEditOpen(open);
+            if (!open) setEditTargetId(null);
+          }}
+          initialData={datasets.find((d) => d.id === editTargetId) ?? detailDataset}
+          onSave={handleSaveDataset}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-6 h-full">
