@@ -6,31 +6,77 @@
     "quickActions": "快捷操作",
     "hotApis": "热门 API"
   },
+  "modules": {
+    "apiCatalog": {
+      "title": "API 目录",
+      "description": "发现和使用 API"
+    },
+    "apiBuilder": {
+      "title": "API 构建",
+      "description": "设计和发布 API"
+    },
+    "datasets": {
+      "title": "数据集",
+      "description": "管理数据资产"
+    },
+    "approval": {
+      "title": "审批中心",
+      "description": "处理待办任务"
+    },
+    "management": {
+      "title": "系统管理",
+      "description": "系统设置与权限"
+    }
+  },
+  "charts": {
+    "apiTraffic": {
+      "title": "API 流量与性能",
+      "description": "实时调用和延迟监控"
+    },
+    "userGrowth": {
+      "title": "用户增长",
+      "totalUsers": "总用户数",
+      "activeUsers": "活跃用户",
+      "retention": "留存率"
+    },
+    "teamActivity": {
+      "title": "团队活动"
+    }
+  },
   "stats": {
-    "apiTotal": "API总数",
+    "apiTotal": "API 总数",
     "dataSources": "数据源",
     "datasets": "数据集",
-    "todayCalls": "今日调用"
+    "todayCalls": "今日调用",
+    "totalUsers": "总用户数",
+    "activeUsers": "活跃用户",
+    "retention": "留存率",
+    "apiCalls": "API 调用",
+    "avgLatency": "平均延迟",
+    "errorRate": "错误率",
+    "systemStatus": "系统状态",
+    "cpuUsage": "CPU 使用率",
+    "memoryUsage": "内存使用率"
   },
-  "quickActions": {
-    "createDataSource": {
-      "title": "数据集",
-      "desc": "平台推荐核心功能"
-    },
-    "buildApi": {
-      "title": "构建 API",
-      "desc": "从数据集快速生成 API"
-    },
-    "viewDocs": {
-      "title": "查看文档",
-      "desc": "浏览 API 使用文档"
-    }
+  "filters": {
+    "1h": "1小时",
+    "24h": "24小时",
+    "7d": "7天",
+    "30d": "30天"
   },
   "hotApis": {
     "title": "热门 API",
+    "subtitle": "使用率最高的 API",
     "performanceWarning": "性能预警",
     "calls": "调用量",
     "latency": "延迟",
     "latencyValue": "{{ms}}ms"
+  },
+  "system": {
+    "title": "系统健康度",
+    "description": "实时平台状态监控",
+    "status": "状态",
+    "availability": "可用性",
+    "uptime": "运行时长"
   }
 }

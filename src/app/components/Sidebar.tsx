@@ -1,4 +1,4 @@
-import { Database, Layers, Zap, BookOpen, LayoutDashboard, Settings, Users, CheckSquare } from 'lucide-react';
+import { Database, Layers, Zap, BookOpen, LayoutDashboard, Users, CheckSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from './ui/utils';
 
@@ -17,7 +17,6 @@ export function Sidebar({ activeView, onViewChange, isCollapsed }: SidebarProps)
     { id: 'api-catalog', label: t('nav.apiCatalog'), icon: BookOpen },
     { id: 'approval', label: t('nav.approval'), icon: CheckSquare },
     { id: 'management', label: t('nav.management'), icon: Users },
-    { id: 'settings', label: t('nav.settings'), icon: Settings },
   ];
 
   return (

@@ -563,15 +563,56 @@ const management = {
 const dashboard = {
   stats: [
     { label: 'API 总数', value: '156', change: '+12%', icon: 'Activity', color: 'text-blue-500' },
-    { label: '数据源', value: '23', change: '+3', icon: 'TrendingUp', color: 'text-green-500' },
-    { label: '数据集', value: '89', change: '+8', icon: 'Clock', color: 'text-purple-500' },
-    { label: '今日调用', value: '45.2K', change: '+23%', icon: 'AlertCircle', color: 'text-orange-500' },
+    { label: '数据源', value: '23', change: '+3', icon: 'Database', color: 'text-green-500' },
+    { label: '数据集', value: '89', change: '+8', icon: 'Server', color: 'text-purple-500' },
+    { label: '今日调用', value: '45.2K', change: '+23%', icon: 'TrendingUp', color: 'text-orange-500' },
   ],
   hotApis: [
     { id: '1', name: 'getUserOrders', domain: '订单域', calls: 1234, latency: 45, status: 'healthy' },
     { id: '4', name: 'getProductInfo', domain: '商品域', calls: 5678, latency: 32, status: 'healthy' },
     { id: '6', name: 'getCustomerProfile', domain: '用户域', calls: 890, latency: 128, status: 'warning' },
     { id: '8', name: 'getInventoryData', domain: '库存域', calls: 2345, latency: 67, status: 'healthy' },
+  ],
+  userStats: {
+    totalUsers: 1250,
+    activeUsers: 850,
+    retentionRate: 78.5,
+    trend: [
+      { date: '2024-01', value: 1000 },
+      { date: '2024-02', value: 1100 },
+      { date: '2024-03', value: 1150 },
+      { date: '2024-04', value: 1200 },
+      { date: '2024-05', value: 1250 },
+    ],
+  },
+  teamStats: {
+    totalTeams: 15,
+    activeMembers: 120,
+    taskCompletionRate: 92,
+    activityTrend: [
+      { date: 'Mon', value: 45 },
+      { date: 'Tue', value: 52 },
+      { date: 'Wed', value: 49 },
+      { date: 'Thu', value: 60 },
+      { date: 'Fri', value: 55 },
+      { date: 'Sat', value: 20 },
+      { date: 'Sun', value: 15 },
+    ],
+  },
+  platformStats: {
+    systemStatus: 'healthy',
+    cpuUsage: 45,
+    memoryUsage: 62,
+    serviceAvailability: 99.99,
+    uptime: '15d 4h 23m',
+  },
+  apiTrends: [
+    { date: '00:00', calls: 120, latency: 45, errors: 0 },
+    { date: '04:00', calls: 80, latency: 42, errors: 0 },
+    { date: '08:00', calls: 450, latency: 55, errors: 2 },
+    { date: '12:00', calls: 980, latency: 68, errors: 5 },
+    { date: '16:00', calls: 850, latency: 60, errors: 3 },
+    { date: '20:00', calls: 340, latency: 48, errors: 1 },
   ],
 };
 

@@ -1,4 +1,35 @@
 {
+  "import": {
+    "title": "导入 API 文档",
+    "trigger": "导入 API",
+    "tabs": {
+      "form": "表单录入",
+      "swagger": "Swagger/OpenAPI 上传"
+    },
+    "form": {
+      "name": "API 名称",
+      "endpoint": "端点路径",
+      "method": "请求方法",
+      "description": "描述",
+      "params": "参数定义",
+      "response": "响应定义",
+      "paramName": "参数名",
+      "paramType": "类型",
+      "paramRequired": "必填",
+      "paramDesc": "说明",
+      "addParam": "添加参数"
+    },
+    "swagger": {
+      "dropzone": "点击或拖拽 JSON 文件到此处上传",
+      "parsing": "正在解析...",
+      "success": "解析成功: 找到 {{count}} 个 API",
+      "error": "解析失败: {{error}}"
+    },
+    "actions": {
+      "import": "确认导入",
+      "cancel": "取消"
+    }
+  },
   "categories": {
     "all": "全部 API"
   },
@@ -25,34 +56,6 @@
     "actions": {
       "exportDocs": "导出文档",
       "importDocs": "导入文档"
-    },
-    "import": {
-      "title": "导入 API 文档",
-      "tabs": {
-        "form": "表单录入",
-        "swagger": "Swagger/OpenAPI 上传"
-      },
-      "form": {
-        "name": "API 名称",
-        "endpoint": "端点路径",
-        "method": "请求方法",
-        "description": "描述",
-        "params": "参数定义",
-        "response": "响应定义",
-        "paramName": "参数名",
-        "paramType": "类型",
-        "paramRequired": "必填",
-        "paramDesc": "说明",
-        "addParam": "添加参数"
-      },
-      "swagger": {
-        "dropzone": "点击或拖拽 JSON 文件到此处上传",
-        "parsing": "正在解析...",
-        "success": "解析成功: 找到 {{count}} 个 API",
-        "error": "解析失败: {{error}}"
-      },
-      "submit": "确认导入",
-      "cancel": "取消"
     },
     "search": {
       "placeholder": "搜索 API 名称或描述..."
@@ -225,7 +228,9 @@
       },
       "actions": {
         "expandExample": "展开示例",
-        "collapseExample": "收起示例"
+        "collapseExample": "收起示例",
+        "expandAll": "展开全部",
+        "collapseAll": "折叠全部"
       }
     },
     "navigation": "目录",

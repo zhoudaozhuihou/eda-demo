@@ -1,10 +1,18 @@
 export type ManagementTeam = {
   id: string;
   name: string;
+  description: string;
+  department: string;
+  serviceAccount: string;
+  teamLeader: string; // User ID or Name
+  contactEmail: string;
+  lastVerifiedAt: string; // ISO Date
   members: number;
   apis: number;
   code: string;
   color: string;
+  roles?: string[]; // Role IDs
+  roleGroups?: string[]; // Role Group IDs
 };
 
 export type ManagementMember = {

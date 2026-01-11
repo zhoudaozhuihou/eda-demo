@@ -40,8 +40,7 @@ const notificationStorageKey = 'eda-platform-notifications';
 
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Switch } from './ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Settings as SettingsComponent } from '@/features/settings/Settings';
 
 // ... existing imports
 
@@ -584,46 +583,11 @@ export function Header({ onToggleSidebar }: HeaderProps) {
 
       {/* Settings Dialog */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t('app:userMenu.settings')}</DialogTitle>
-          </DialogHeader>
-          <Tabs defaultValue="general">
-            <TabsList className="w-full">
-              <TabsTrigger value="general" className="flex-1">通用设置</TabsTrigger>
-              <TabsTrigger value="account" className="flex-1">账号安全</TabsTrigger>
-            </TabsList>
-            <TabsContent value="general" className="space-y-4 py-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>深色模式</Label>
-                  <p className="text-sm text-muted-foreground">切换系统外观主题</p>
-                </div>
-                <Switch 
-                  checked={isDark}
-                  onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>桌面通知</Label>
-                  <p className="text-sm text-muted-foreground">启用或禁用浏览器通知</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-            </TabsContent>
-            <TabsContent value="account" className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>当前密码</Label>
-                <Input type="password" />
-              </div>
-              <div className="space-y-2">
-                <Label>新密码</Label>
-                <Input type="password" />
-              </div>
-              <Button>修改密码</Button>
-            </TabsContent>
-          </Tabs>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col overflow-hidden">
+          {/* We use the shared Settings component here */}
+          <div className="flex-1 overflow-auto p-1">
+             <SettingsComponent embedded />
+          </div>
         </DialogContent>
       </Dialog>
 

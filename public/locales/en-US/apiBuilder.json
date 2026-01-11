@@ -13,7 +13,7 @@
     },
     "2": {
       "name": "Configure data source",
-      "desc": "Select dataset, database, and request method"
+      "desc": "Select primary dataset"
     },
     "3": {
       "name": "Define parameters",
@@ -25,7 +25,7 @@
     },
     "5": {
       "name": "Publish",
-      "desc": "Set auth and limits, then publish the API"
+      "desc": "Configure API name, method, auth, limits and publish"
     }
   },
   "buildMode": {
@@ -64,6 +64,12 @@
   },
   "dataSource": {
     "title": "Configure data source",
+    "selectPrimary": {
+      "label": "Select the primary dataset for your API"
+    },
+    "fieldsPreview": {
+      "label": "Fields Preview"
+    },
     "databaseType": {
       "label": "Database type",
       "hint": "Affects SQL dialect and parameter syntax.",
@@ -174,6 +180,8 @@
     "table": {
       "headers": {
         "fieldName": "Field",
+        "source": "Source Table",
+        "alias": "Alias",
         "type": "Type",
         "asParam": "As param",
         "required": "Required",
@@ -251,6 +259,43 @@
         "pagination": "Pagination defaults: {{status}}",
         "injectParameterized": "Parameterized injection: {{status}}",
         "batchCount": "APIs to generate: {{count}}"
+      }
+    },
+    "preview": {
+      "title": "API Preview",
+      "table": {
+        "category": "Category",
+        "details": "Details"
+      },
+      "headers": {
+        "title": "Header Information",
+        "auth": "Authentication",
+        "contentType": "Content-Type"
+      },
+      "request": {
+        "title": "Request Details",
+        "url": "Request URL",
+        "method": "Request Method",
+        "params": "Request Params",
+        "body": "Request Body"
+      },
+      "response": {
+        "title": "Response Information",
+        "headers": "Response Headers",
+        "status": "Status Code",
+        "body": "Response Body"
+      },
+      "errors": {
+        "title": "Error Handling",
+        "codes": "Error Codes",
+        "example": "Error Response Example",
+        "suggestion": "Handling Suggestion"
+      },
+      "meta": {
+        "title": "Other Information",
+        "version": "API Version",
+        "latency": "Average Latency",
+        "timestamp": "Generated At"
       }
     }
   },

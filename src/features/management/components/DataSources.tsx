@@ -32,7 +32,16 @@ export function DataSources() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [maxComputeManagerOpen, setMaxComputeManagerOpen] = useState(false);
   const [selectedMaxComputeId, setSelectedMaxComputeId] = useState<string | null>(null);
-  // ...
+
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'MySQL' as DataSource['type'],
+    host: '',
+    port: '',
+    database: '',
+    username: '',
+    password: '',
+  });
 
   const handleOpenMaxCompute = (id: string) => {
     setSelectedMaxComputeId(id);
@@ -76,7 +85,7 @@ export function DataSources() {
     } else {
       // Create new
       const newDataSource: DataSource = {
-        id: Date.now().toString(),
+        id: new Date().getTime().toString(),
         name: formData.name,
         type: formData.type,
         host: formData.host,
@@ -280,8 +289,13 @@ export function DataSources() {
                 <Edit className="size-3 mr-1" />
                 编辑
               </Button>
-              <Button variant="outline" size="sm" className="flex-1">
-                同步
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1"
+                onClick={() => source.type === 'MaxCompute' ? handleOpenMaxCompute(source.id) : undefined}
+              >
+                {source.type === 'MaxCompute' ? '管理' : '同步'}
               </Button>
               <Button variant="ghost" size="sm">
                 <Trash2 className="size-3" />

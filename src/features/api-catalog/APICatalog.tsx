@@ -6,13 +6,15 @@ import { Input } from '@/app/components/ui/input';
 import { Badge } from '@/app/components/ui/badge';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/app/components/ui/pagination';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/app/components/ui/tooltip';
-import { Search, BookOpen, TrendingUp, Clock, Activity, Copy, ExternalLink, FolderOpen, BarChart, ChevronRight, ChevronDown, Plus } from 'lucide-react';
+import { Search, BookOpen, TrendingUp, Clock, Activity, Copy, ExternalLink, FolderOpen, BarChart, ChevronRight, ChevronDown, Plus, Network } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { apiCatalogActions, fetchCatalogApis } from '@/features/api-catalog/store';
 import type { ApiCatalogApi as API } from '@/features/api-catalog/types';
 import { fetchTaxonomy } from '@/features/categories/store';
 import { ApiImportDialog } from './ApiImportDialog';
+import { LineageGraph } from '@/features/datasets/components/LineageGraph';
+import { Dialog, DialogContent } from '@/app/components/ui/dialog';
 
 interface Category {
   id: string;
@@ -31,6 +33,7 @@ export function APICatalog() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [lineageApi, setLineageApi] = useState<API | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
@@ -441,8 +444,17 @@ export function APICatalog() {
                         variant="ghost"
                         size="sm"
                         onClick={() => copyToClipboard(api.path)}
+                        title={t('actions.copyPath', { defaultValue: 'Copy Path' })}
                       >
                         <Copy className="size-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setLineageApi(api)}
+                        title={t('actions.lineage', { defaultValue: 'Lineage' })}
+                      >
+                        <Network className="size-3" />
                       </Button>
                     </div>
                     <p className="text-sm text-muted-foreground">{api.description}</p>
@@ -553,7 +565,19 @@ export function APICatalog() {
         )}
       </div>
 
+      {/* Import Dialog */}
       <ApiImportDialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen} />
+
+      {/* Lineage Dialog */}
+      <Dialog open={!!lineageApi} onOpenChange={(open) => !open && setLineageApi(null)}>
+        <DialogContent className="max-w-4xl h-[600px] flex flex-col p-6">
+          {lineageApi && (
+            <div className="flex-1 w-full h-full min-h-0">
+              <LineageGraph data={lineageApi} type="api" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,4 +1,35 @@
 {
+  "import": {
+    "title": "Import API",
+    "trigger": "Import API",
+    "error": "Error: {{error}}",
+    "tabs": {
+      "form": "Manual Entry",
+      "swagger": "Swagger/OpenAPI"
+    },
+    "form": {
+      "name": "API Name",
+      "method": "Method",
+      "endpoint": "Endpoint Path",
+      "description": "Description",
+      "params": "Parameters",
+      "addParam": "Add Parameter",
+      "paramName": "Name",
+      "paramType": "Type",
+      "paramRequired": "Req",
+      "paramDesc": "Description"
+    },
+    "swagger": {
+      "dropzone": "Drag & Drop Swagger/OpenAPI file here",
+      "parsing": "Parsing...",
+      "success": "Successfully imported {{count}} API(s)",
+      "error": "Import failed: {{error}}"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "import": "Import"
+    }
+  },
   "categories": {
     "all": "All APIs"
   },
@@ -196,7 +227,9 @@
       },
       "actions": {
         "expandExample": "Expand example",
-        "collapseExample": "Collapse example"
+        "collapseExample": "Collapse example",
+        "expandAll": "Expand all",
+        "collapseAll": "Collapse all"
       }
     },
     "navigation": "Navigation",

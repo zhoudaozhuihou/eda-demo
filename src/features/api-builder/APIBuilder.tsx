@@ -1,14 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Badge } from '@/app/components/ui/badge';
-import { ArrowRight, ArrowLeft, CheckCircle, AlertTriangle, Sparkles, Plus, X, Link2, Syringe, Layers2 } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/app/components/ui/table';
+import { ArrowRight, ArrowLeft, CheckCircle, AlertTriangle, Sparkles, Plus, X, Link2, Syringe, Layers2, Search, ChevronDown, ChevronRight, Pin, PinOff, BarChart2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
@@ -19,6 +26,12 @@ interface Field {
   isRequired: boolean;
   isReturn: boolean;
   defaultValue: string;
+  alias?: string;
+  table?: string;
+  description?: string;
+  category?: string;
+  isPinned?: boolean;
+  usageScore?: number;
 }
 
 interface JoinTable {
@@ -53,6 +66,8 @@ export type APIBuilderContext = {
     important?: boolean;
   }>;
 };
+
+const toSnakeCase = (str: string) => str.trim().replace(/\s+/g, '_').toLowerCase();
 
 export function APIBuilder({
   context,
@@ -91,6 +106,99 @@ export function APIBuilder({
   ]);
 
   const [sqlQuery, setSqlQuery] = useState('');
+  
+  // Large Dataset & Virtual Scroll State
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+
+  const generateLargeDataset = () => {
+    setLoading(true);
+    const startTime = performance.now();
+    // Simulate backend lazy loading
+    setTimeout(() => {
+      const largeFields: Field[] = Array.from({ length: 300 }, (_, i) => ({
+        name: `field_${i + 1}`,
+        type: ['varchar', 'bigint', 'datetime', 'decimal', 'boolean'][i % 5],
+        isParam: i < 10,
+        isRequired: i < 5,
+        isReturn: true,
+        defaultValue: '',
+        alias: `Field ${i + 1}`,
+        description: `Description for field ${i + 1} - ${['User ID', 'Order Amount', 'Created Time', 'Status', 'Is Active'][i % 5]}`,
+        category: `Group ${Math.floor(i / 50) + 1}`,
+        isPinned: false,
+        usageScore: Math.floor(Math.random() * 100),
+      }));
+      setFields(largeFields);
+      setLoading(false);
+      const endTime = performance.now();
+      toast.success(`Loaded 300+ fields in ${Math.round(endTime - startTime)}ms (Simulated Backend Delay: 800ms)`);
+    }, 800);
+  };
+
+  const togglePin = (index: number) => {
+    const newFields = [...fields];
+    newFields[index].isPinned = !newFields[index].isPinned;
+    setFields(newFields);
+  };
+
+  const toggleGroup = (group: string) => {
+    const newCollapsed = new Set(collapsedGroups);
+    if (newCollapsed.has(group)) {
+      newCollapsed.delete(group);
+    } else {
+      newCollapsed.add(group);
+    }
+    setCollapsedGroups(newCollapsed);
+  };
+
+  const processedFields = useMemo(() => {
+    let result = [...fields];
+
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      result = result.filter(f => 
+        f.name.toLowerCase().includes(lower) || 
+        (f.alias && f.alias.toLowerCase().includes(lower)) || 
+        (f.description && f.description.toLowerCase().includes(lower)) ||
+        f.type.toLowerCase().includes(lower)
+      );
+    }
+
+    // Sort: Pinned > Usage Score > Original
+    result.sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      // if ((a.usageScore || 0) !== (b.usageScore || 0)) return (b.usageScore || 0) - (a.usageScore || 0);
+      return 0;
+    });
+
+    const grouped: Record<string, Field[]> = {};
+    result.forEach(f => {
+      const group = f.category || 'Default';
+      if (!grouped[group]) grouped[group] = [];
+      grouped[group].push(f);
+    });
+
+    return grouped;
+  }, [fields, searchTerm]);
+
+  const flatList = useMemo(() => {
+    const list: Array<{ type: 'header' | 'row'; data: { name: string; count: number } | Field; originalIndex?: number }> = [];
+    Object.entries(processedFields).forEach(([group, groupFields]) => {
+      list.push({ type: 'header', data: { name: group, count: groupFields.length } });
+      if (!collapsedGroups.has(group)) {
+        groupFields.forEach((f) => {
+           const originalIndex = fields.findIndex(field => field.name === f.name);
+           list.push({ type: 'row', data: f, originalIndex });
+        });
+      }
+    });
+    return list;
+  }, [processedFields, collapsedGroups, fields]);
+
   const sqlValidation = useMemo(() => {
     return {
       syntaxValid: true,
@@ -196,8 +304,44 @@ export function APIBuilder({
     setFields(newFields);
   };
 
+  const getPreviewData = (): {
+    method: string;
+    url: string;
+    headers: { 'Content-Type': string; Authorization?: string };
+    params: Field[];
+    requestBody: Record<string, unknown> | null;
+    responseBody: Record<string, unknown>;
+    timestamp: string;
+  } => {
+    const params = fields.filter((f) => f.isParam);
+    const returns = fields.filter((f) => f.isReturn);
+    
+    const requestBody = apiConfig.method === 'get' || apiConfig.method === 'delete' 
+      ? null 
+      : params.reduce((acc, f) => ({ ...acc, [f.alias || f.name]: f.type === 'number' ? 0 : 'string' }), {});
+      
+    const responseBody = {
+      code: 200,
+      data: returns.reduce((acc, f) => ({ ...acc, [f.alias || f.name]: f.type === 'number' ? 123 : 'example_value' }), {}),
+      message: 'success'
+    };
+
+    return {
+      method: apiConfig.method || 'GET',
+      url: `/api/v1/${apiConfig.domain || 'domain'}/${apiConfig.name || 'resource'}`,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': apiConfig.authType === 'none' ? undefined : `${apiConfig.authType === 'apiKey' ? 'ApiKey' : 'Bearer'} <token>`
+      },
+      params,
+      requestBody,
+      responseBody,
+      timestamp: new Date().toISOString()
+    };
+  };
+
   const generateSQL = () => {
-    const returnFields = fields.filter((f) => f.isReturn).map((f) => f.name);
+    const returnFields = fields.filter((f) => f.isReturn);
     const paramFields = fields.filter((f) => f.isParam);
 
     let sql = '';
@@ -227,8 +371,9 @@ export function APIBuilder({
     setSqlQuery(sql);
   };
 
-  const generateRelationalSQL = (returnFields: string[], paramFields: Field[]) => {
-    let fromClause = apiConfig.dataset || 'table_name';
+  const generateRelationalSQL = (returnFields: Field[], paramFields: Field[]) => {
+    const mainTable = apiConfig.dataset || 'table_name';
+    let fromClause = mainTable;
     
     if (buildMode === 'join' && joinTables.length > 0) {
       const joinClauses = joinTables
@@ -237,11 +382,33 @@ export function APIBuilder({
       fromClause = `${fromClause}\n${joinClauses}`;
     }
 
-    const whereClause = paramFields.map((f) => `  AND ${f.name} = :${f.name}`).join('\n');
+    const selectClause = returnFields.map((f) => {
+      const tableName = f.table || mainTable;
+      const col = buildMode === 'join' ? `${tableName}.${f.name}` : f.name;
+      
+      if (f.alias) {
+        return `${col} AS ${f.alias}`;
+      }
+      
+      // Default behavior for JOIN mode: use fully qualified name and alias with table prefix
+      // to avoid column name collisions
+      if (buildMode === 'join') {
+        return `${col} AS ${tableName}_${f.name}`;
+      }
+
+      return col;
+    }).join(',\n  ');
+
+    const whereClause = paramFields.map((f) => {
+      const tableName = f.table || mainTable;
+      const col = buildMode === 'join' ? `${tableName}.${f.name}` : f.name;
+      return `  AND ${col} = :${f.name}`;
+    }).join('\n');
+
     const injectComment = buildMode === 'inject' ? `\n-- ${t('sql.comments.injectPoint')}` : '';
 
     return `SELECT 
-  ${returnFields.join(',\n  ')}
+  ${selectClause}
 FROM ${fromClause}
 WHERE 1=1
 ${whereClause}${injectComment}
@@ -249,11 +416,11 @@ ORDER BY created_at DESC
 LIMIT 20 OFFSET 0;  -- ${t('sql.comments.pagination')}`;
   };
 
-  const generateClickHouseSQL = (returnFields: string[], paramFields: Field[]) => {
+  const generateClickHouseSQL = (returnFields: Field[], paramFields: Field[]) => {
     const whereClause = paramFields.map((f) => `  AND ${f.name} = {${f.name}:${f.type}}`).join('\n');
     
     return `SELECT 
-  ${returnFields.join(',\n  ')}
+  ${returnFields.map(f => f.alias ? `${f.name} AS ${f.alias}` : f.name).join(',\n  ')}
 FROM ${apiConfig.dataset || 'table_name'}
 WHERE 1=1
 ${whereClause}
@@ -262,7 +429,7 @@ LIMIT 20
 SETTINGS max_execution_time = 60;  -- ${t('sql.comments.clickhouseSettings')}`;
   };
 
-  const generateMongoQuery = (returnFields: string[], paramFields: Field[]) => {
+  const generateMongoQuery = (returnFields: Field[], paramFields: Field[]) => {
     const filterObj: Record<string, string> = {};
     paramFields.forEach((f) => {
       filterObj[f.name] = `<${f.name}>`;
@@ -270,7 +437,7 @@ SETTINGS max_execution_time = 60;  -- ${t('sql.comments.clickhouseSettings')}`;
 
     const projectionObj: Record<string, number> = {};
     returnFields.forEach((f) => {
-      projectionObj[f] = 1;
+      projectionObj[f.alias || f.name] = 1;
     });
 
     return `db.${apiConfig.dataset || 'collection_name'}.find(
@@ -282,11 +449,11 @@ SETTINGS max_execution_time = 60;  -- ${t('sql.comments.clickhouseSettings')}`;
 .skip(0);  // ${t('sql.comments.pagination')}`;
   };
 
-  const generateBigQuerySQL = (returnFields: string[], paramFields: Field[]) => {
+  const generateBigQuerySQL = (returnFields: Field[], paramFields: Field[]) => {
     const whereClause = paramFields.map((f) => `  AND ${f.name} = @${f.name}`).join('\n');
     
     return `SELECT 
-  ${returnFields.join(',\n  ')}
+  ${returnFields.map(f => f.alias ? `${f.name} AS ${f.alias}` : f.name).join(',\n  ')}
 FROM \`${apiConfig.dataset || 'project.dataset.table'}\`
 WHERE TRUE
 ${whereClause}
@@ -295,21 +462,17 @@ LIMIT 20
 OFFSET 0;  -- ${t('sql.comments.pagination')}`;
   };
 
-  const generateMaxComputeSQL = (returnFields: string[], paramFields: Field[]) => {
+  const generateMaxComputeSQL = (returnFields: Field[], paramFields: Field[]) => {
     const whereClause = paramFields.map((f) => `  AND ${f.name} = \${${f.name}}`).join('\n');
     
     return `SELECT 
-  ${returnFields.join(',\n  ')}
+  ${returnFields.map(f => f.alias ? `${f.name} AS ${f.alias}` : f.name).join(',\n  ')}
 FROM ${apiConfig.dataset || 'table_name'}
 WHERE 1=1
 ${whereClause}
 ORDER BY created_at DESC
 LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
   };
-
-  const sqlPlanText = useMemo(() => {
-    return t('sql.plan.text', { score: sqlValidation.performanceScore });
-  }, [sqlValidation.performanceScore, t]);
 
   return (
     <div className="space-y-6">
@@ -468,43 +631,25 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
 
         {currentStep === 2 && buildMode !== 'batch' && (
           <div className="space-y-4">
-            <h2>{t('dataSource.title')}</h2>
-            
-            <div className="space-y-2">
-              <Label>{t('dataSource.databaseType.label')}</Label>
-              <Select value={databaseType} onValueChange={(value: DatabaseType) => setDatabaseType(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MySQL">MySQL</SelectItem>
-                  <SelectItem value="PostgreSQL">PostgreSQL</SelectItem>
-                  <SelectItem value="ClickHouse">ClickHouse</SelectItem>
-                  <SelectItem value="Oracle">Oracle</SelectItem>
-                  <SelectItem value="MongoDB">{t('dataSource.databaseType.options.mongoDb')}</SelectItem>
-                  <SelectItem value="BigQuery">{t('dataSource.databaseType.options.bigQuery')}</SelectItem>
-                  <SelectItem value="MaxCompute">{t('dataSource.databaseType.options.maxCompute')}</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {t('dataSource.databaseType.hint')}
-              </p>
+            <div>
+              <h2>{t('dataSource.title')}</h2>
+              <p className="text-sm text-muted-foreground">{t('dataSource.selectPrimary.label')}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t('dataSource.apiName.label')}</Label>
-                <Input
-                  placeholder={t('dataSource.apiName.placeholder')}
-                  value={apiConfig.name}
-                  onChange={(e) => setApiConfig({ ...apiConfig, name: e.target.value })}
-                />
-              </div>
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label>{t('dataSource.dataset.label')}</Label>
                 <Select
                   value={apiConfig.dataset}
-                  onValueChange={(value) => setApiConfig({ ...apiConfig, dataset: value })}
+                  onValueChange={(value) => {
+                    const newName = toSnakeCase(value);
+                    setApiConfig({ ...apiConfig, dataset: value, name: newName });
+                    // Simulating field load for preview
+                    if (!fields.some(f => f.table === value)) {
+                       const newFields = fields.map(f => ({ ...f, table: value }));
+                       setFields(newFields);
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={t('dataSource.dataset.placeholder')} />
@@ -518,112 +663,20 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            {buildMode === 'join' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>{t('join.title')}</Label>
-                  <Button onClick={addJoinTable} size="sm" variant="outline" className="gap-2">
-                    <Plus className="size-4" />
-                    {t('join.actions.add')}
-                  </Button>
-                </div>
-
-                {joinTables.length === 0 ? (
-                  <Card className="p-6 text-center text-muted-foreground">
-                    <p>{t('join.empty')}</p>
-                  </Card>
-                ) : (
-                  <div className="space-y-3">
-                    {joinTables.map((join) => (
-                      <Card key={join.id} className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1 grid grid-cols-4 gap-3">
-                            <div className="space-y-2">
-                              <Label className="text-xs">{t('join.fields.table.label')}</Label>
-                              <Select
-                                value={join.table}
-                                onValueChange={(value) => updateJoinTable(join.id, 'table', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder={t('join.fields.table.placeholder')} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="product_info">product_info</SelectItem>
-                                  <SelectItem value="customer_profile">customer_profile</SelectItem>
-                                  <SelectItem value="order_items">order_items</SelectItem>
-                                  <SelectItem value="payments">payments</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-xs">{t('join.fields.alias.label')}</Label>
-                              <Input
-                                placeholder={t('join.fields.alias.placeholder')}
-                                value={join.alias}
-                                onChange={(e) => updateJoinTable(join.id, 'alias', e.target.value)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-xs">{t('join.fields.joinType.label')}</Label>
-                              <Select
-                                value={join.joinType}
-                                onValueChange={(value) => updateJoinTable(join.id, 'joinType', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="INNER">{t('join.fields.joinType.options.inner')}</SelectItem>
-                                  <SelectItem value="LEFT">{t('join.fields.joinType.options.left')}</SelectItem>
-                                  <SelectItem value="RIGHT">{t('join.fields.joinType.options.right')}</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-xs">{t('join.fields.onCondition.label')}</Label>
-                              <Input
-                                placeholder={t('join.fields.onCondition.placeholder')}
-                                value={join.onCondition}
-                                onChange={(e) =>
-                                  updateJoinTable(join.id, 'onCondition', e.target.value)
-                                }
-                              />
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeJoinTable(join.id)}
-                            className="mt-6"
-                          >
-                            <X className="size-4 text-red-600" />
-                          </Button>
-                        </div>
-                      </Card>
+              {apiConfig.dataset && (
+                <Card className="p-4 bg-muted/50">
+                  <Label className="mb-3 block text-xs font-medium uppercase text-muted-foreground">{t('dataSource.fieldsPreview.label')}</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {fields.map((f) => (
+                      <Badge key={f.name} variant="outline" className="bg-background">
+                        {f.name}
+                        <span className="ml-1.5 text-[10px] text-muted-foreground">{f.type}</span>
+                      </Badge>
                     ))}
                   </div>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label>{t('dataSource.method.label')}</Label>
-              <Select
-                value={apiConfig.method}
-                onValueChange={(value) => setApiConfig({ ...apiConfig, method: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="GET">{t('dataSource.method.options.get')}</SelectItem>
-                  <SelectItem value="POST">{t('dataSource.method.options.post')}</SelectItem>
-                  <SelectItem value="PUT">{t('dataSource.method.options.put')}</SelectItem>
-                  <SelectItem value="DELETE">{t('dataSource.method.options.delete')}</SelectItem>
-                </SelectContent>
-              </Select>
+                </Card>
+              )}
             </div>
           </div>
         )}
@@ -710,74 +763,250 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
         )}
 
         {currentStep === 3 && buildMode !== 'batch' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2>{t('params.title')}</h2>
-              <Button variant="outline" size="sm" onClick={generateSQL}>
-                <Sparkles className="size-4 mr-1" />
-                {t('params.actions.autoGenerateSql')}
-              </Button>
-            </div>
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-muted">
-                  <tr>
-                    <th className="text-left p-3">{t('params.table.headers.fieldName')}</th>
-                    <th className="text-left p-3">{t('params.table.headers.type')}</th>
-                    <th className="text-center p-3">{t('params.table.headers.asParam')}</th>
-                    <th className="text-center p-3">{t('params.table.headers.required')}</th>
-                    <th className="text-center p-3">{t('params.table.headers.asReturn')}</th>
-                    <th className="text-left p-3">{t('params.table.headers.defaultValue')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fields.map((field, index) => (
-                    <tr key={index} className="border-t">
-                      <td className="p-3 font-mono text-sm">{field.name}</td>
-                      <td className="p-3">
-                        <Badge variant="outline">{field.type}</Badge>
-                      </td>
-                      <td className="p-3 text-center">
-                        <Checkbox
-                          checked={field.isParam}
-                          onCheckedChange={() => toggleFieldParam(index)}
-                        />
-                      </td>
-                      <td className="p-3 text-center">
-                        <Checkbox
-                          checked={field.isRequired}
-                          disabled={!field.isParam}
-                          onCheckedChange={() => {
-                            const newFields = [...fields];
-                            newFields[index].isRequired = !newFields[index].isRequired;
-                            setFields(newFields);
-                          }}
-                        />
-                      </td>
-                      <td className="p-3 text-center">
-                        <Checkbox
-                          checked={field.isReturn}
-                          onCheckedChange={() => toggleFieldReturn(index)}
-                        />
-                      </td>
-                      <td className="p-3">
-                        <Input
-                          size={1}
-                          placeholder={t('params.table.defaultValue.placeholder')}
-                          className="h-8"
-                          disabled={!field.isParam}
-                          value={field.defaultValue}
-                          onChange={(e) => {
-                            const newFields = [...fields];
-                            newFields[index].defaultValue = e.target.value;
-                            setFields(newFields);
-                          }}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="space-y-6">
+            {buildMode === 'join' && (
+              <div className="space-y-4 border-b pb-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">{t('join.title')}</h3>
+                  <Button onClick={addJoinTable} size="sm" variant="outline" className="gap-2">
+                    <Plus className="size-4" />
+                    {t('join.actions.add')}
+                  </Button>
+                </div>
+
+                {joinTables.length === 0 ? (
+                  <Card className="p-6 text-center text-muted-foreground">
+                    <p>{t('join.empty')}</p>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {joinTables.map((join) => (
+                      <Card key={join.id} className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 grid grid-cols-4 gap-3">
+                            <div className="space-y-2">
+                              <Label className="text-xs">{t('join.fields.table.label')}</Label>
+                              <Select
+                                value={join.table}
+                                onValueChange={(value) => updateJoinTable(join.id, 'table', value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder={t('join.fields.table.placeholder')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="product_info">product_info</SelectItem>
+                                  <SelectItem value="customer_profile">customer_profile</SelectItem>
+                                  <SelectItem value="order_items">order_items</SelectItem>
+                                  <SelectItem value="payments">payments</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">{t('join.fields.alias.label')}</Label>
+                              <Input
+                                placeholder={t('join.fields.alias.placeholder')}
+                                value={join.alias}
+                                onChange={(e) => updateJoinTable(join.id, 'alias', e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">{t('join.fields.joinType.label')}</Label>
+                              <Select
+                                value={join.joinType}
+                                onValueChange={(value) => updateJoinTable(join.id, 'joinType', value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="INNER">{t('join.fields.joinType.options.inner')}</SelectItem>
+                                  <SelectItem value="LEFT">{t('join.fields.joinType.options.left')}</SelectItem>
+                                  <SelectItem value="RIGHT">{t('join.fields.joinType.options.right')}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs">{t('join.fields.onCondition.label')}</Label>
+                              <Input
+                                placeholder={t('join.fields.onCondition.placeholder')}
+                                value={join.onCondition}
+                                onChange={(e) =>
+                                  updateJoinTable(join.id, 'onCondition', e.target.value)
+                                }
+                              />
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeJoinTable(join.id)}
+                            className="mt-6"
+                          >
+                            <X className="size-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <h2>{t('params.title')}</h2>
+                <div className="flex items-center gap-2 flex-1 justify-end">
+                  <div className="relative w-64">
+                    <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search fields..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                  <Button variant="outline" size="sm" onClick={generateLargeDataset} disabled={loading}>
+                    {loading ? <div className="animate-spin mr-2">C</div> : <BarChart2 className="size-4 mr-2" />}
+                    Simulate Large Table (300+)
+                  </Button>
+                </div>
+              </div>
+
+              <div 
+                ref={scrollContainerRef}
+                className="border rounded-lg overflow-auto h-[600px] relative bg-white"
+                onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+              >
+                <div style={{ height: `${flatList.length * 50}px` }} className="relative">
+                  {/* Sticky Header */}
+                  <div className="sticky top-0 z-20 bg-muted border-b grid grid-cols-[200px_120px_100px_100px_80px_80px_80px_1fr] font-medium text-sm shadow-sm">
+                    <div className="p-3 pl-4">Field Name</div>
+                    <div className="p-3">Source</div>
+                    <div className="p-3">Alias</div>
+                    <div className="p-3">Type</div>
+                    <div className="p-3 text-center">Param</div>
+                    <div className="p-3 text-center">Required</div>
+                    <div className="p-3 text-center">Return</div>
+                    <div className="p-3">Default</div>
+                  </div>
+
+                  {(() => {
+                    const ROW_HEIGHT = 50;
+                    const startIndex = Math.floor(scrollTop / ROW_HEIGHT);
+                    const endIndex = Math.min(flatList.length - 1, startIndex + Math.ceil(600 / ROW_HEIGHT) + 5);
+                    const visibleItems = [];
+
+                    for (let i = startIndex; i <= endIndex; i++) {
+                      const item = flatList[i];
+                      if (!item) continue;
+                      
+                      const top = i * ROW_HEIGHT;
+                      
+                      if (item.type === 'header') {
+                        const groupName = item.data.name;
+                        const count = item.data.count;
+                        const isCollapsed = collapsedGroups.has(groupName);
+                        
+                        visibleItems.push(
+                          <div 
+                            key={`group-${groupName}`}
+                            className="absolute left-0 right-0 flex items-center px-4 bg-muted/30 hover:bg-muted/50 cursor-pointer border-b z-10"
+                            style={{ top: `${top}px`, height: `${ROW_HEIGHT}px` }}
+                            onClick={() => toggleGroup(groupName)}
+                          >
+                            {isCollapsed ? <ChevronRight className="size-4 mr-2" /> : <ChevronDown className="size-4 mr-2" />}
+                            <span className="font-medium">{groupName}</span>
+                            <Badge variant="secondary" className="ml-2">{count}</Badge>
+                          </div>
+                        );
+                      } else {
+                        const field = item.data as Field;
+                        const index = item.originalIndex!;
+                        
+                        visibleItems.push(
+                          <div 
+                            key={field.name}
+                            className={`absolute left-0 right-0 grid grid-cols-[200px_120px_100px_100px_80px_80px_80px_1fr] items-center border-b hover:bg-muted/10 transition-colors ${field.isPinned ? 'bg-blue-50/50' : ''}`}
+                            style={{ top: `${top}px`, height: `${ROW_HEIGHT}px` }}
+                          >
+                            <div className="p-3 pl-4 flex items-center gap-2 overflow-hidden">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 shrink-0"
+                                onClick={() => togglePin(index)}
+                              >
+                                {field.isPinned ? <Pin className="size-3 fill-blue-500 text-blue-500" /> : <PinOff className="size-3 text-muted-foreground" />}
+                              </Button>
+                              <div className="flex flex-col truncate">
+                                <span className="font-mono text-sm truncate" title={field.name}>{field.name}</span>
+                                {field.description && <span className="text-[10px] text-muted-foreground truncate">{field.description}</span>}
+                              </div>
+                            </div>
+                            <div className="p-3 text-sm text-muted-foreground truncate" title={field.table || apiConfig.dataset || '-'}>
+                              {field.table || apiConfig.dataset || '-'}
+                            </div>
+                            <div className="p-3">
+                              <Input
+                                size={1}
+                                className="h-8 w-full"
+                                placeholder={field.name}
+                                value={field.alias || ''}
+                                onChange={(e) => {
+                                  const newFields = [...fields];
+                                  newFields[index].alias = e.target.value;
+                                  setFields(newFields);
+                                }}
+                              />
+                            </div>
+                            <div className="p-3">
+                               <Badge variant="outline" className="text-xs">{field.type}</Badge>
+                            </div>
+                            <div className="p-3 text-center">
+                              <Checkbox
+                                checked={field.isParam}
+                                onCheckedChange={() => toggleFieldParam(index)}
+                              />
+                            </div>
+                            <div className="p-3 text-center">
+                              <Checkbox
+                                checked={field.isRequired}
+                                disabled={!field.isParam}
+                                onCheckedChange={() => {
+                                  const newFields = [...fields];
+                                  newFields[index].isRequired = !newFields[index].isRequired;
+                                  setFields(newFields);
+                                }}
+                              />
+                            </div>
+                            <div className="p-3 text-center">
+                              <Checkbox
+                                checked={field.isReturn}
+                                onCheckedChange={() => toggleFieldReturn(index)}
+                              />
+                            </div>
+                            <div className="p-3">
+                              <Input
+                                size={1}
+                                className="h-8 w-full"
+                                placeholder="-"
+                                disabled={!field.isParam}
+                                value={field.defaultValue}
+                                onChange={(e) => {
+                                  const newFields = [...fields];
+                                  newFields[index].defaultValue = e.target.value;
+                                  setFields(newFields);
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      }
+                    }
+                    return visibleItems;
+                  })()}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -816,32 +1045,19 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                 {databaseType}
               </Badge>
             </div>
-            <Tabs defaultValue="editor">
-              <TabsList>
-                <TabsTrigger value="editor">{t('sql.tabs.editor')}</TabsTrigger>
-                <TabsTrigger value="preview">{t('sql.tabs.plan')}</TabsTrigger>
-              </TabsList>
-              <TabsContent value="editor" className="space-y-4">
-                <Textarea
-                  value={sqlQuery}
-                  onChange={(e) => setSqlQuery(e.target.value)}
-                  className="font-mono min-h-[300px]"
-                  placeholder={t('sql.editor.placeholder')}
-                />
-                <div className="flex items-center gap-2">
-                  <Button variant="outline">{t('sql.actions.format')}</Button>
-                  <Button variant="outline">{t('sql.actions.syntaxCheck')}</Button>
-                  <Button>{t('sql.actions.runTest')}</Button>
-                </div>
-              </TabsContent>
-              <TabsContent value="preview">
-                <Card className="p-4 bg-muted">
-                  <pre className="text-sm font-mono whitespace-pre-wrap">
-                    {sqlPlanText}
-                  </pre>
-                </Card>
-              </TabsContent>
-            </Tabs>
+            <div className="space-y-4">
+              <Textarea
+                value={sqlQuery}
+                onChange={(e) => setSqlQuery(e.target.value)}
+                className="font-mono min-h-[400px]"
+                placeholder={t('sql.editor.placeholder')}
+              />
+              <div className="flex items-center gap-2">
+                <Button variant="outline">{t('sql.actions.format')}</Button>
+                <Button variant="outline">{t('sql.actions.syntaxCheck')}</Button>
+                <Button>{t('sql.actions.runTest')}</Button>
+              </div>
+            </div>
 
             {sqlValidation.warnings.length > 0 && (
               <Card className="p-4 bg-yellow-50 border-yellow-200">
@@ -890,27 +1106,54 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
         )}
 
         {currentStep === 5 && (
-          <div className="space-y-4">
-            <h2>{t('publish.title')}</h2>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-6">
               <div className="space-y-2">
-                <Label>{t('publish.authType.label')}</Label>
+                <label className="text-sm font-medium">{t('dataSource.apiName.label')}</label>
+                <Input
+                  value={apiConfig.name}
+                  onChange={(e) => setApiConfig({ ...apiConfig, name: e.target.value })}
+                  placeholder={t('dataSource.apiName.placeholder')}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t('dataSource.method.label')}</label>
                 <Select
-                  value={apiConfig.authType}
-                  onValueChange={(value) => setApiConfig({ ...apiConfig, authType: value })}
+                  value={apiConfig.method}
+                  onValueChange={(value) => setApiConfig({ ...apiConfig, method: value as 'get' | 'post' | 'put' | 'delete' })}
                 >
                   <SelectTrigger>
-                  <SelectValue />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="API_KEY">{t('publish.authType.options.apiKey')}</SelectItem>
-                    <SelectItem value="OAUTH2">{t('publish.authType.options.oauth2')}</SelectItem>
-                    <SelectItem value="NONE">{t('publish.authType.options.none')}</SelectItem>
+                    <SelectItem value="get">GET</SelectItem>
+                    <SelectItem value="post">POST</SelectItem>
+                    <SelectItem value="put">PUT</SelectItem>
+                    <SelectItem value="delete">DELETE</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-2">
-                <Label>{t('publish.domain.label')}</Label>
+                <label className="text-sm font-medium">{t('publish.authType.label')}</label>
+                <Select
+                  value={apiConfig.authType}
+                  onValueChange={(value) => setApiConfig({ ...apiConfig, authType: value as 'apiKey' | 'oauth2' | 'none' })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="apiKey">{t('publish.authType.options.apiKey')}</SelectItem>
+                    <SelectItem value="oauth2">{t('publish.authType.options.oauth2')}</SelectItem>
+                    <SelectItem value="none">{t('publish.authType.options.none')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t('publish.domain.label')}</label>
                 <Select
                   value={apiConfig.domain}
                   onValueChange={(value) => setApiConfig({ ...apiConfig, domain: value })}
@@ -926,35 +1169,161 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>{t('publish.qpsLimit.label')}</Label>
-              <Input
-                type="number"
-                value={apiConfig.qpsLimit}
-                onChange={(e) => setApiConfig({ ...apiConfig, qpsLimit: e.target.value })}
-                placeholder={t('publish.qpsLimit.placeholder')}
-              />
-              <p className="text-xs text-muted-foreground">{t('publish.qpsLimit.hint')}</p>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t('publish.qpsLimit.label')}</label>
+                <Input
+                  type="number"
+                  value={apiConfig.qpsLimit}
+                  onChange={(e) => setApiConfig({ ...apiConfig, qpsLimit: e.target.value })}
+                  placeholder={t('publish.qpsLimit.placeholder')}
+                />
+                <p className="text-xs text-muted-foreground">{t('publish.qpsLimit.hint')}</p>
+              </div>
             </div>
 
-            <Card className="p-4 bg-green-50 border-green-200">
-              <div className="flex gap-2 mb-2">
-                <CheckCircle className="size-5 text-green-600" />
-                <h3 className="text-green-900">{t('publish.security.title')}</h3>
-              </div>
-              <ul className="list-disc list-inside space-y-1 text-sm text-green-800">
-                <li>{t('publish.security.items.sqlInjection', { status: t('publish.security.status.pass') })}</li>
-                <li>{t('publish.security.items.schema', { status: t('publish.security.status.pass') })}</li>
-                <li>{t('publish.security.items.performanceScore', { score: sqlValidation.performanceScore })}</li>
-                <li>{t('publish.security.items.masking', { status: t('publish.security.status.applied') })}</li>
-                <li>{t('publish.security.items.pagination', { status: t('publish.security.status.configured') })}</li>
-                {buildMode === 'inject' && <li>{t('publish.security.items.injectParameterized', { status: t('publish.security.status.enabled') })}</li>}
-                {buildMode === 'batch' && (
-                  <li>{t('publish.security.items.batchCount', { count: batchAPIs.filter((api) => api.enabled).length })}</li>
-                )}
-              </ul>
-            </Card>
+            <div className="space-y-6">
+              <Card className="p-4">
+                <h3 className="font-medium mb-4">{t('publish.security.title')}</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>{t('publish.security.items.sqlInjection', { status: '' })}</span>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <CheckCircle className="size-3 mr-1" />
+                      {t('publish.security.status.pass')}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>{t('publish.security.items.schema', { status: '' })}</span>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <CheckCircle className="size-3 mr-1" />
+                      {t('publish.security.status.enabled')}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>{t('publish.security.items.performanceScore', { score: sqlValidation.performanceScore })}</span>
+                    <Badge variant="outline" className={sqlValidation.performanceScore > 80 ? "bg-green-50 text-green-700 border-green-200" : "bg-yellow-50 text-yellow-700 border-yellow-200"}>
+                      {sqlValidation.performanceScore > 80 ? <CheckCircle className="size-3 mr-1" /> : <AlertTriangle className="size-3 mr-1" />}
+                      {sqlValidation.performanceScore > 80 ? t('publish.security.status.pass') : 'Warning'}
+                    </Badge>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-4">
+                <h3 className="font-medium mb-4">{t('preview.title')}</h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[150px]">{t('preview.table.category')}</TableHead>
+                      <TableHead>{t('preview.table.details')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-medium align-top">{t('preview.headers.title')}</TableCell>
+                      <TableCell>
+                        <div className="space-y-2 text-sm font-mono bg-muted p-2 rounded">
+                          <div>Content-Type: application/json</div>
+                          {apiConfig.authType !== 'none' && (
+                            <div>Authorization: {apiConfig.authType === 'apiKey' ? 'ApiKey' : 'Bearer'} *******</div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+
+                    <TableRow>
+                      <TableCell className="font-medium align-top">{t('preview.request.title')}</TableCell>
+                      <TableCell>
+                        <div className="space-y-3 text-sm">
+                          <div>
+                            <span className="font-semibold mr-2">{getPreviewData().method.toUpperCase()}</span>
+                            <span className="font-mono bg-muted px-1 rounded">{getPreviewData().url}</span>
+                          </div>
+                          {getPreviewData().requestBody && (
+                            <div>
+                              <div className="text-xs text-muted-foreground mb-1">{t('preview.request.body')}:</div>
+                              <pre className="font-mono bg-muted p-2 rounded overflow-auto max-h-40">
+                                {JSON.stringify(getPreviewData().requestBody, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                          {getPreviewData().params.length > 0 && (!getPreviewData().requestBody) && (
+                            <div>
+                              <div className="text-xs text-muted-foreground mb-1">{t('preview.request.params')}:</div>
+                              <div className="space-y-1">
+                                {getPreviewData().params.map(p => (
+                                  <div key={p.name} className="flex gap-2 font-mono text-xs">
+                                    <span>{p.alias || p.name}</span>
+                                    <span className="text-muted-foreground">({p.type})</span>
+                                    {p.isRequired && <span className="text-red-500">*</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+
+                    <TableRow>
+                      <TableCell className="font-medium align-top">{t('preview.response.title')}</TableCell>
+                      <TableCell>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex gap-2">
+                            <span className="font-semibold">{t('preview.response.status')}:</span>
+                            <span className="text-green-600">200 OK</span>
+                          </div>
+                          <pre className="font-mono bg-muted p-2 rounded overflow-auto max-h-40">
+                            {JSON.stringify(getPreviewData().responseBody, null, 2)}
+                          </pre>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+
+                    <TableRow>
+                      <TableCell className="font-medium align-top">{t('preview.errors.title')}</TableCell>
+                      <TableCell>
+                        <div className="space-y-3 text-sm">
+                          <div className="space-y-1">
+                            <div className="font-medium text-red-600">400 Bad Request</div>
+                            <pre className="font-mono bg-muted p-2 rounded text-xs">
+                              {JSON.stringify({ code: 400, message: 'Invalid parameter', details: '...' }, null, 2)}
+                            </pre>
+                          </div>
+                          {apiConfig.authType !== 'none' && (
+                            <div className="space-y-1">
+                              <div className="font-medium text-orange-600">401 Unauthorized</div>
+                              <div className="text-xs text-muted-foreground">{t('preview.errors.suggestion')}: Check token validity</div>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+
+                    <TableRow>
+                      <TableCell className="font-medium align-top">{t('preview.meta.title')}</TableCell>
+                      <TableCell>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">{t('preview.meta.version')}:</span>
+                            <span className="ml-2 font-mono">v1.0.0</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">{t('preview.meta.latency')}:</span>
+                            <span className="ml-2 font-mono">~50ms</span>
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-muted-foreground">{t('preview.meta.timestamp')}:</span>
+                            <span className="ml-2 font-mono">{getPreviewData().timestamp}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
           </div>
         )}
       </Card>
@@ -970,7 +1339,15 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
           {t('nav.prev')}
         </Button>
         {currentStep < 5 ? (
-          <Button onClick={() => setCurrentStep(Math.min(5, currentStep + 1))}>
+          <Button
+            onClick={() => {
+              const nextStep = Math.min(5, currentStep + 1);
+              if (nextStep === 4) {
+                generateSQL();
+              }
+              setCurrentStep(nextStep);
+            }}
+          >
             {t('nav.next')}
             <ArrowRight className="size-4 ml-2" />
           </Button>

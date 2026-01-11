@@ -2,14 +2,16 @@ import React, { useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { useTranslation } from 'react-i18next';
 import type { Dataset } from '@/features/datasets/types';
+import type { ApiCatalogApi } from '@/features/api-catalog/types';
 import { Card } from '@/app/components/ui/card';
 
 interface LineageGraphProps {
-  dataset: Dataset;
-  onNodeClick?: (name: string, type: 'dataset' | 'upstream' | 'downstream') => void;
+  data: Dataset | ApiCatalogApi;
+  type?: 'dataset' | 'api';
+  onNodeClick?: (name: string, type: 'dataset' | 'api' | 'upstream' | 'downstream') => void;
 }
 
-export function LineageGraph({ dataset, onNodeClick }: LineageGraphProps) {
+export function LineageGraph({ data, type = 'dataset', onNodeClick }: LineageGraphProps) {
   const { t } = useTranslation('datasets');
 
   const supportsCanvas = useMemo(() => {
@@ -23,20 +25,42 @@ export function LineageGraph({ dataset, onNodeClick }: LineageGraphProps) {
   }, []);
 
   const option = useMemo(() => {
-    const fromWarehouse = /仓库|warehouse/i.test(dataset.source);
-    
-    // Mock Data Logic matching seedLineage
-    const upstreams = fromWarehouse 
-      ? ['ODS.user_orders', 'ODS.customer_profile'] 
-      : ['prod_mysql.user_orders'];
-    
-    const downstreams = (dataset.relatedAPIs ?? []).map((a) => `API.${a}`);
+    let upstreams: string[] = [];
+    let downstreams: string[] = [];
+    let centerName = '';
+    let centerValue = '';
+
+    if (!data) return {};
+
+    if (type === 'dataset') {
+      const dataset = data as Dataset;
+      centerName = dataset.name;
+      centerValue = dataset.alias || dataset.name;
+      const fromWarehouse = /仓库|warehouse/i.test(dataset.source || '');
+      
+      // Mock Data Logic matching seedLineage
+      upstreams = fromWarehouse 
+        ? ['ODS.user_orders', 'ODS.customer_profile'] 
+        : ['prod_mysql.user_orders'];
+      
+      downstreams = (dataset.relatedAPIs ?? []).map((a) => `API.${a}`);
+    } else {
+      const api = data as ApiCatalogApi;
+      centerName = api.name;
+      centerValue = api.path;
+      
+      // API Upstreams (Datasets)
+      upstreams = (api.datasets ?? ['ODS.user_orders', 'ODS.customer_profile']).map(d => `Dataset.${d}`);
+      
+      // API Downstreams (Apps/Consumers - Mock)
+      downstreams = ['Mobile App', 'Web Portal', 'Partner Service'];
+    }
 
     const nodes = [
-      // Center Node (Current Dataset)
+      // Center Node
       {
-        name: dataset.name,
-        value: dataset.alias || dataset.name,
+        name: centerName,
+        value: centerValue,
         category: 1,
         x: 0,
         y: 0,
@@ -64,7 +88,7 @@ export function LineageGraph({ dataset, onNodeClick }: LineageGraphProps) {
       });
       links.push({
         source: name,
-        target: dataset.name,
+        target: centerName,
         symbol: ['none', 'arrow'],
       });
     });
@@ -82,7 +106,7 @@ export function LineageGraph({ dataset, onNodeClick }: LineageGraphProps) {
         itemStyle: { color: '#9ca3af' }, // Gray
       });
       links.push({
-        source: dataset.name,
+        source: centerName,
         target: t('lineage.noDownstream'),
         symbol: ['none', 'none'],
         lineStyle: { type: 'dashed' }
@@ -101,7 +125,7 @@ export function LineageGraph({ dataset, onNodeClick }: LineageGraphProps) {
           itemStyle: { color: '#f59e0b' }, // Amber
         });
         links.push({
-          source: dataset.name,
+          source: centerName,
           target: name,
           symbol: ['none', 'arrow'],
         });
@@ -153,15 +177,25 @@ export function LineageGraph({ dataset, onNodeClick }: LineageGraphProps) {
       animationDurationUpdate: 1500,
       animationEasingUpdate: 'quinticInOut',
     };
-  }, [dataset, t]);
+  }, [data, type, t]);
+
+  if (!data) {
+    return (
+      <Card className="w-full h-[500px] p-4 flex items-center justify-center text-muted-foreground">
+        {t('lineage.noData', { defaultValue: 'No data available' })}
+      </Card>
+    );
+  }
 
   if (!supportsCanvas) {
+    const name = type === 'dataset' ? (data as Dataset).alias || (data as Dataset).name : (data as ApiCatalogApi).name;
+    
     return (
       <Card className="w-full h-[500px] p-4 flex flex-col gap-3" aria-label={t('dialogs.lineage')}>
-        <div className="text-muted-foreground">{dataset.alias ?? dataset.name}</div>
+        <div className="text-muted-foreground">{name}</div>
         <div className="space-y-2 text-sm">
-          <div>{t('lineage.upstream')}: {['RawEvents', 'UserProfile'].join(', ')}</div>
-          <div>{t('lineage.downstream')}: {dataset.relatedAPIs.join(', ') || t('lineage.noDownstream')}</div>
+          <div>{t('lineage.upstream')}</div>
+          <div>{t('lineage.downstream')}</div>
         </div>
       </Card>
     );
@@ -176,7 +210,7 @@ export function LineageGraph({ dataset, onNodeClick }: LineageGraphProps) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           click: (params: any) => {
             if (onNodeClick && params.dataType === 'node') {
-              onNodeClick(params.name, 'dataset');
+              onNodeClick(params.name, type);
             }
           }
         }}

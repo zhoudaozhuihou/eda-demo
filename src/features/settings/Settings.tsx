@@ -7,15 +7,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/ta
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { useTranslation } from 'react-i18next';
 
-export function Settings() {
+export function Settings({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('settings');
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl mb-2">{t('title')}</h1>
-        <p className="text-muted-foreground">{t('subtitle')}</p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-3xl mb-2">{t('title')}</h1>
+          <p className="text-muted-foreground">{t('subtitle')}</p>
+        </div>
+      )}
 
       <Tabs defaultValue="general" className="w-full">
         <TabsList>

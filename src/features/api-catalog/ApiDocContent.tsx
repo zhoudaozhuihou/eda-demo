@@ -8,7 +8,7 @@ import { Badge } from '@/app/components/ui/badge';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/app/components/ui/tooltip';
-import { Search, Play, ChevronRight, ChevronDown, Menu } from 'lucide-react';
+import { Search, Play, ChevronRight, ChevronDown, Menu, Network } from 'lucide-react';
 import type { ApiCatalogApi as API } from '@/features/api-catalog/types';
 
 type ApiDocParam = {
@@ -1095,7 +1095,7 @@ function ApiDocResponseTree({ params }: { params: ApiDocParam[] }) {
   );
 }
 
-function ApiDocStatusCodes({ api }: { api: API }) {
+export function ApiDocStatusCodes({ api }: { api: API }) {
   const { t } = useTranslation('apiCatalog');
   const [search, setSearch] = useState('');
   const [family, setFamily] = useState<'all' | '2xx' | '4xx' | '5xx'>('all');
@@ -1118,6 +1118,18 @@ function ApiDocStatusCodes({ api }: { api: API }) {
       });
   }, [family, list, normalized]);
 
+  const handleExpandAll = () => {
+    const next = filtered.reduce((acc, s) => {
+      acc[s.httpStatus] = false;
+      return acc;
+    }, {} as Record<number, boolean>);
+    setCollapsed(next);
+  };
+
+  const handleCollapseAll = () => {
+    setCollapsed({});
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1128,6 +1140,14 @@ function ApiDocStatusCodes({ api }: { api: API }) {
           </Badge>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={handleExpandAll}>
+              {t('doc.statusCodes.actions.expandAll')}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleCollapseAll}>
+              {t('doc.statusCodes.actions.collapseAll')}
+            </Button>
+          </div>
           <Select value={family} onValueChange={(v) => setFamily(v as 'all' | '2xx' | '4xx' | '5xx')}>
             <SelectTrigger className="w-[140px]">
               <SelectValue />
@@ -1153,7 +1173,7 @@ function ApiDocStatusCodes({ api }: { api: API }) {
 
       <div className="space-y-3">
         {filtered.map((s) => {
-          const isCollapsed = collapsed[s.httpStatus] ?? false;
+          const isCollapsed = collapsed[s.httpStatus] ?? true;
           const badgeClass =
             s.httpStatus >= 200 && s.httpStatus < 300
               ? 'bg-green-100 text-green-700'
@@ -1170,10 +1190,12 @@ function ApiDocStatusCodes({ api }: { api: API }) {
                     <span className="font-medium">{s.title}</span>
                     <span className="text-sm text-muted-foreground">{s.standardDescription}</span>
                   </div>
-                  <div className="text-sm mt-2">
-                    <span className="text-muted-foreground">{t('doc.statusCodes.labels.scenario')}</span>
-                    <span>{s.scenario}</span>
-                  </div>
+                  {!isCollapsed && (
+                    <div className="text-sm mt-2">
+                      <span className="text-muted-foreground">{t('doc.statusCodes.labels.scenario')}</span>
+                      <span>{s.scenario}</span>
+                    </div>
+                  )}
                 </div>
                 <Button
                   variant="outline"
@@ -1204,6 +1226,7 @@ export function ApiDocContent({ api }: { api: API }) {
 
   const sections = useMemo(() => [
     { id: 'overview', label: t('doc.sections.basicInfo') },
+    { id: 'lineage', label: t('doc.tabs.lineage', { defaultValue: 'Lineage' }) },
     { id: 'request', label: t('doc.tabs.request') },
     { id: 'response', label: t('doc.tabs.response') },
     { id: 'status', label: t('doc.tabs.status') },
@@ -1310,7 +1333,13 @@ export function ApiDocContent({ api }: { api: API }) {
       {/* Content Area */}
       <div id="doc-content-area" className="flex-1 min-w-0 h-full overflow-y-auto p-4 sm:p-6 space-y-10 pb-10">
         <section id="doc-section-overview" className="scroll-mt-4">
-          <h3 className="mb-4 text-lg font-semibold">{t('doc.sections.basicInfo')}</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold mb-0">{t('doc.sections.basicInfo')}</h3>
+            <Button variant="outline" size="sm" onClick={() => setIsLineageOpen(true)}>
+              <Network className="w-4 h-4 mr-2" />
+              {t('actions.lineage', { defaultValue: 'Lineage' })}
+            </Button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-6">
             <div>
               <span className="text-muted-foreground">{t('doc.labels.requestMethod')}</span>

@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Label } from '@/app/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/app/components/ui/table';
-import { Plus, Trash2, FileJson } from 'lucide-react';
+import { Plus, Trash2, FileJson, CheckCircle2, AlertCircle, Loader2, ArrowRight, RefreshCw } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/app/components/ui/alert';
+import { Progress } from '@/app/components/ui/progress';
 import { toast } from 'sonner';
 import { useAppDispatch } from '@/store/hooks';
 import { apiCatalogActions } from '@/features/api-catalog/store';
@@ -50,11 +52,18 @@ export function ApiImportDialog({ open, onOpenChange }: ApiImportDialogProps) {
   // Swagger State
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [parsing, setParsing] = useState(false);
+  const [importStep, setImportStep] = useState<'idle' | 'parsing' | 'success' | 'error'>('idle');
+  const [progress, setProgress] = useState(0);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [parsedResult, setParsedResult] = useState<{name: string; method: string; path: string; description: string} | null>(null);
 
   const resetForm = () => {
     setFormData({ name: '', endpoint: '', method: 'GET', description: '' });
     setParams([]);
+    setImportStep('idle');
+    setProgress(0);
+    setImportError(null);
+    setParsedResult(null);
   };
 
   const handleAddParam = () => {
@@ -253,32 +262,95 @@ export function ApiImportDialog({ open, onOpenChange }: ApiImportDialogProps) {
           </TabsContent>
 
           <TabsContent value="swagger" className="py-4">
-            <div 
-              className={`border-2 border-dashed rounded-lg p-12 flex flex-col items-center justify-center text-center transition-colors ${dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}`}
-              onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-              onDragLeave={() => setDragActive(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragActive(false);
-                if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]);
-              }}
-            >
-              <div className="bg-primary/10 p-4 rounded-full mb-4">
-                <FileJson className="w-8 h-8 text-primary" />
+            {importStep === 'idle' && (
+              <div 
+                className={`border-2 border-dashed rounded-lg p-12 flex flex-col items-center justify-center text-center transition-colors ${dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}`}
+                onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                  if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]);
+                }}
+              >
+                <div className="bg-primary/10 p-4 rounded-full mb-4">
+                  <FileJson className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">{t('import.swagger.dropzone')}</h3>
+                <p className="text-sm text-muted-foreground mb-4">.json, .yaml</p>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept=".json,.yaml,.yml"
+                  onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} 
+                />
+                <Button onClick={() => fileInputRef.current?.click()}>
+                  {t('import.title')}
+                </Button>
               </div>
-              <h3 className="text-lg font-semibold mb-2">{t('import.swagger.dropzone')}</h3>
-              <p className="text-sm text-muted-foreground mb-4">.json, .yaml</p>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept=".json,.yaml,.yml"
-                onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} 
-              />
-              <Button onClick={() => fileInputRef.current?.click()} disabled={parsing}>
-                {parsing ? t('import.swagger.parsing') : t('import.title')}
-              </Button>
-            </div>
+            )}
+
+            {importStep === 'parsing' && (
+              <div className="p-12 flex flex-col items-center justify-center text-center space-y-4">
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                <div className="w-full max-w-xs space-y-2">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{t('import.swagger.parsing')}</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+              </div>
+            )}
+
+            {importStep === 'error' && (
+              <div className="space-y-4">
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>
+                    {importError}
+                  </AlertDescription>
+                </Alert>
+                <div className="flex justify-center">
+                  <Button variant="outline" onClick={() => setImportStep('idle')}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {importStep === 'success' && parsedResult && (
+              <div className="space-y-6">
+                <div className="flex flex-col items-center justify-center text-center space-y-2 text-green-600">
+                  <CheckCircle2 className="w-12 h-12" />
+                  <h3 className="text-lg font-semibold">Import Successful</h3>
+                </div>
+                
+                <div className="bg-muted p-4 rounded-lg space-y-3">
+                  <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
+                    <span className="font-medium text-muted-foreground">Name:</span>
+                    <span>{parsedResult.name}</span>
+                    <span className="font-medium text-muted-foreground">Method:</span>
+                    <span>{parsedResult.method}</span>
+                    <span className="font-medium text-muted-foreground">Path:</span>
+                    <code className="bg-background px-1 py-0.5 rounded border">{parsedResult.path}</code>
+                  </div>
+                </div>
+
+                <div className="flex justify-center gap-3">
+                  <Button variant="outline" onClick={() => setImportStep('idle')}>
+                    Cancel
+                  </Button>
+                  <Button onClick={applyImport}>
+                    Continue to Review
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 

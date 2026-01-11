@@ -1,7 +1,7 @@
 import { apiRequest } from '@/services/http';
-import type { DashboardHotApi, DashboardStat } from './types';
+import type { DashboardData } from './types';
 
-export async function getDashboard(): Promise<{ stats: DashboardStat[]; hotApis: DashboardHotApi[] }> {
+export async function getDashboard(): Promise<DashboardData> {
   return apiRequest('/api/dashboard');
 }
 

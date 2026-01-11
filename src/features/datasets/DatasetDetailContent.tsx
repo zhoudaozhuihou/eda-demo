@@ -255,7 +255,7 @@ export function DatasetDetailContent({ dataset, onBack, canEdit = true, canCreat
                 {dataset.tags.map((tag) => (
                   <Badge key={tag} variant="secondary" className="gap-1">
                     <Tag className="size-3" />
-                    {t(`tags.${tag}` as never, { defaultValue: dataset.tag ?? tag })}
+                    {t(`tags.${tag}` as never, { defaultValue: tag })}
                   </Badge>
                 ))}
               </div>
@@ -553,7 +553,7 @@ export function DatasetDetailContent({ dataset, onBack, canEdit = true, canCreat
           <DialogHeader>
             <DialogTitle>{t('dialogs.lineage')}</DialogTitle>
           </DialogHeader>
-          <LineageGraph dataset={dataset} />
+          <LineageGraph data={dataset} type="dataset" />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsLineageOpen(false)}>
               {t('actions.close')}

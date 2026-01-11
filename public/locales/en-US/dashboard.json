@@ -6,31 +6,77 @@
     "quickActions": "Quick Actions",
     "hotApis": "Hot APIs"
   },
+  "modules": {
+    "apiCatalog": {
+      "title": "API Catalog",
+      "description": "Discover and consume APIs"
+    },
+    "apiBuilder": {
+      "title": "API Builder",
+      "description": "Design and publish APIs"
+    },
+    "datasets": {
+      "title": "Data Sets",
+      "description": "Manage data assets"
+    },
+    "approval": {
+      "title": "Approval",
+      "description": "Process pending tasks"
+    },
+    "management": {
+      "title": "Management",
+      "description": "System & Permissions"
+    }
+  },
+  "charts": {
+    "apiTraffic": {
+      "title": "API Traffic & Performance",
+      "description": "Real-time calls and latency monitoring"
+    },
+    "userGrowth": {
+      "title": "User Growth",
+      "totalUsers": "Total Users",
+      "activeUsers": "Active Users",
+      "retention": "Retention"
+    },
+    "teamActivity": {
+      "title": "Team Activity"
+    }
+  },
   "stats": {
     "apiTotal": "Total APIs",
     "dataSources": "Data sources",
     "datasets": "Datasets",
-    "todayCalls": "Calls today"
+    "todayCalls": "Calls today",
+    "totalUsers": "Total Users",
+    "activeUsers": "Active Users",
+    "retention": "Retention Rate",
+    "apiCalls": "API Calls",
+    "avgLatency": "Avg Latency",
+    "errorRate": "Error Rate",
+    "systemStatus": "System Status",
+    "cpuUsage": "CPU Usage",
+    "memoryUsage": "Memory Usage"
   },
-  "quickActions": {
-    "createDataSource": {
-      "title": "Datasets",
-      "desc": "Platform Recommended Core Feature"
-    },
-    "buildApi": {
-      "title": "Build API",
-      "desc": "Generate an API from datasets"
-    },
-    "viewDocs": {
-      "title": "View docs",
-      "desc": "Browse API documentation"
-    }
+  "filters": {
+    "1h": "1H",
+    "24h": "24H",
+    "7d": "7D",
+    "30d": "30D"
   },
   "hotApis": {
     "title": "Hot APIs",
+    "subtitle": "Top performing APIs by usage",
     "performanceWarning": "Performance warning",
     "calls": "Calls",
     "latency": "Latency",
     "latencyValue": "{{ms}}ms"
+  },
+  "system": {
+    "title": "System Health",
+    "description": "Real-time platform status",
+    "status": "Status",
+    "availability": "Availability",
+    "uptime": "Uptime"
   }
 }
