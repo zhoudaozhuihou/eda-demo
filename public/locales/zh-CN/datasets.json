@@ -16,7 +16,34 @@
     "viewDetail": "查看详情 →",
     "viewHistory": "变更历史",
     "viewLineage": "查看血缘关系",
-    "applyAccess": "申请权限"
+    "applyAccess": "申请权限",
+    "mapping": "数据源映射",
+    "autoMatch": "智能匹配"
+  },
+  "mapping": {
+    "title": "MaxCompute - Hologres 映射配置",
+    "selectSource": "选择 Hologres 数据源",
+    "unmapped": "未映射",
+    "mapped": "已映射",
+    "actions": {
+      "config": "配置",
+      "edit": "编辑",
+      "delete": "删除",
+      "batchConfig": "批量配置"
+    },
+    "columns": {
+      "mcTable": "MaxCompute 表",
+      "holoTable": "Hologres 表",
+      "status": "状态",
+      "updateTime": "更新时间"
+    },
+    "dialog": {
+      "title": "配置表映射",
+      "sourceTable": "源表 (MaxCompute)",
+      "targetTable": "目标表 (Hologres)",
+      "fieldMapping": "字段映射",
+      "autoMatchTip": "已为您自动推荐相似表名"
+    }
   },
   "search": {
     "datasetsPlaceholder": "搜索数据集名称或别名...",

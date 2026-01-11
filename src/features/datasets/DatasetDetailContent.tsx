@@ -10,6 +10,8 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { Dataset } from '@/features/datasets/types';
 import { buildDatasetFields, normalizeSearchText, type DatasetField, type FieldGroupId } from './utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
+import { DataSourceMapping } from './components/DataSourceMapping';
 import { LineageGraph } from './components/LineageGraph';
 import { ChangeHistory } from './components/ChangeHistory';
 
@@ -266,25 +268,32 @@ export function DatasetDetailContent({ dataset, onBack, canEdit = true, canCreat
             </div>
           </Card>
 
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2>{t('labels.fieldsList')}</h2>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!canEdit}
-                onClick={() => {
-                  if (!canEdit) {
-                    toast.error(t('permissions.noManage'));
-                    return;
-                  }
-                  setIsFieldEditOpen(true);
-                }}
-              >
-                <Edit className="size-4 mr-1" />
-                {t('actions.editFields')}
-              </Button>
-            </div>
+          <Tabs defaultValue="fields" className="w-full">
+            <TabsList className="mb-4 w-full justify-start">
+              <TabsTrigger value="fields">{t('labels.fieldsList')}</TabsTrigger>
+              <TabsTrigger value="mapping">{t('mapping.title')}</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="fields">
+              <Card className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2>{t('labels.fieldsList')}</h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canEdit}
+                    onClick={() => {
+                      if (!canEdit) {
+                        toast.error(t('permissions.noManage'));
+                        return;
+                      }
+                      setIsFieldEditOpen(true);
+                    }}
+                  >
+                    <Edit className="size-4 mr-1" />
+                    {t('actions.editFields')}
+                  </Button>
+                </div>
             <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
               <div className="flex items-center gap-2">
                 <Checkbox checked={onlyKeyFields} onCheckedChange={(v) => setOnlyKeyFields(v === true)} />
@@ -368,6 +377,11 @@ export function DatasetDetailContent({ dataset, onBack, canEdit = true, canCreat
               {t('counts.total', { count: filteredFields.length })}
             </div>
           </Card>
+        </TabsContent>
+        <TabsContent value="mapping">
+          <DataSourceMapping dataset={dataset} />
+        </TabsContent>
+      </Tabs>
         </div>
 
         {/* Sidebar */}

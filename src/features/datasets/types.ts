@@ -1,3 +1,14 @@
+export type TableMapping = {
+  id: string;
+  maxComputeTableName: string;
+  hologresConnectionId: string;
+  hologresTableName: string;
+  status: 'mapped' | 'unmapped';
+  fieldMappings?: Record<string, string>;
+  updatedAt: string;
+  updatedBy: string;
+};
+
 export type Dataset = {
   id: string;
   name: string;
@@ -14,4 +25,5 @@ export type Dataset = {
   relatedAPIs?: string[];
   description?: string;
   project?: string;
+  mappings?: TableMapping[];
 };

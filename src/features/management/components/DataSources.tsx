@@ -11,7 +11,7 @@ import { Plus, Database, CheckCircle, XCircle, Edit, Trash2 } from 'lucide-react
 interface DataSource {
   id: string;
   name: string;
-  type: 'MySQL' | 'PostgreSQL' | 'ClickHouse' | 'Oracle' | 'MaxCompute';
+  type: 'MySQL' | 'PostgreSQL' | 'ClickHouse' | 'Oracle' | 'MaxCompute' | 'Hologres';
   host: string;
   port: number;
   database: string;
@@ -174,6 +174,7 @@ export function DataSources() {
                       <SelectItem value="ClickHouse">ClickHouse</SelectItem>
                       <SelectItem value="Oracle">Oracle</SelectItem>
                       <SelectItem value="MaxCompute">MaxCompute</SelectItem>
+                      <SelectItem value="Hologres">Hologres</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

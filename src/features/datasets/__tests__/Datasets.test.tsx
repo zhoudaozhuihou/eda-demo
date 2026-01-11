@@ -128,7 +128,7 @@ describe('Datasets', () => {
     expect(viewButton).toBeTruthy();
     await user.click(viewButton!);
     expect(screen.getAllByText('商品信息表').length).toBeGreaterThan(0);
-    expect(screen.getByText('字段列表')).toBeInTheDocument();
+    expect(screen.getAllByText('字段列表').length).toBeGreaterThan(0);
 
     await user.click(screen.getByText('查看血缘关系'));
     {
