@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { Button } from '@/app/components/ui/button';
@@ -31,7 +31,15 @@ export function DatasetFormDialog({ open, onOpenChange, initialData, onSave }: D
   const { t, i18n } = useTranslation('datasets');
   const localeForSort = i18n.language.startsWith('en') ? 'en' : 'zh-Hans-CN';
 
-  const [form, setForm] = useState<Partial<Dataset> & { tagsInput?: string }>(defaultForm);
+  const buildFormState = (data?: Partial<Dataset> | null) => ({
+    ...defaultForm,
+    ...(data ?? {}),
+    tagsInput: Array.isArray(data?.tags) ? data?.tags.join(', ') : '',
+  });
+
+  const [form, setForm] = useState<Partial<Dataset> & { tagsInput?: string }>(() =>
+    open ? buildFormState(initialData) : defaultForm,
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const domainOptions = useMemo(() => {
@@ -46,20 +54,13 @@ export function DatasetFormDialog({ open, onOpenChange, initialData, onSave }: D
     );
   }, [localeForSort, t]);
 
-  useEffect(() => {
-    if (open) {
-      if (initialData) {
-        setForm({
-          ...defaultForm,
-          ...initialData,
-          tagsInput: Array.isArray(initialData.tags) ? initialData.tags.join(', ') : '',
-        });
-      } else {
-        setForm({ ...defaultForm, tagsInput: '' });
-      }
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      setForm(buildFormState(initialData));
       setErrors({});
     }
-  }, [open, initialData]);
+    onOpenChange(nextOpen);
+  };
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -103,7 +104,7 @@ export function DatasetFormDialog({ open, onOpenChange, initialData, onSave }: D
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{initialData ? t('dialogs.edit') : t('dialogs.create')}</DialogTitle>

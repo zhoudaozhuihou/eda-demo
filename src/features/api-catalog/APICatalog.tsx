@@ -315,10 +315,10 @@ export function APICatalog() {
     toast.success(t('toast.copied'));
   };
 
-  const onNavigateToDetail = (e: React.MouseEvent, apiId: string) => {
+  const onNavigateToDetail = (e: React.MouseEvent, apiId: string, version: string) => {
     e.preventDefault();
     window.dispatchEvent(new CustomEvent('eda:navigate', { 
-      detail: { view: 'api-details', params: { id: apiId } } 
+      detail: { view: 'api-details', params: { id: apiId, version } } 
     }));
   };
 
@@ -461,8 +461,8 @@ export function APICatalog() {
                   </div>
                 </div>
                 <a 
-                  href={`/api/details/${api.id}`} 
-                  onClick={(e) => onNavigateToDetail(e, api.id)}
+                  href={`/api/details/${api.id}/${api.version}`} 
+                  onClick={(e) => onNavigateToDetail(e, api.id, api.version)}
                   className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 shrink-0 self-end md:self-start"
                 >
                   <BookOpen className="size-4 mr-2" />

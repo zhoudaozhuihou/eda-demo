@@ -2,14 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/app/components/ui/card';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Badge } from '@/app/components/ui/badge';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/app/components/ui/tooltip';
-import { Search, Play, ChevronRight, ChevronDown, Menu, Network } from 'lucide-react';
+import { Search, Play, ChevronRight, ChevronDown, Menu, Network, PenTool } from 'lucide-react';
 import type { ApiCatalogApi as API } from '@/features/api-catalog/types';
+import { LineageGraph } from '@/features/datasets/components/LineageGraph';
 
 type ApiDocParam = {
   name: string;
@@ -753,7 +755,9 @@ function ApiDocParamTable({
   );
 
   const rowHeight = 44;
-  const tableHeight = 320;
+  const headerHeight = 36;
+  const tableHeight = rowHeight * 3 + headerHeight;
+  const calcHeight = (count: number) => Math.min(tableHeight, count * rowHeight + headerHeight);
 
   return (
     <div className="space-y-3">
@@ -780,7 +784,7 @@ function ApiDocParamTable({
         <div className="border rounded-lg overflow-hidden">
           <VirtualizedRows
             items={groups.keyParams}
-            height={Math.min(tableHeight, groups.keyParams.length * rowHeight)}
+            height={calcHeight(groups.keyParams.length)}
             rowHeight={rowHeight}
             header={header}
             minWidth={860}
@@ -794,7 +798,7 @@ function ApiDocParamTable({
         <div className="border rounded-lg overflow-hidden">
           <VirtualizedRows
             items={matches}
-            height={Math.min(tableHeight, matches.length * rowHeight)}
+            height={calcHeight(matches.length)}
             rowHeight={rowHeight}
             header={header}
             minWidth={860}
@@ -825,7 +829,7 @@ function ApiDocParamTable({
                   <div className="border-t">
                     <VirtualizedRows
                       items={list}
-                      height={tableHeight}
+                      height={calcHeight(list.length)}
                       rowHeight={rowHeight}
                       header={header}
                       minWidth={860}
@@ -1218,11 +1222,25 @@ export function ApiDocStatusCodes({ api }: { api: API }) {
   );
 }
 
-export function ApiDocContent({ api }: { api: API }) {
+export function ApiDocContent({
+  api,
+  versions = [],
+  onVersionChange,
+}: {
+  api: API;
+  versions?: API[];
+  onVersionChange?: (next: API) => void;
+}) {
   const { t } = useTranslation('apiCatalog');
   const doc = useMemo(() => buildApiDocParams(api, t), [api, t]);
   const [activeSection, setActiveSection] = useState('overview');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLineageOpen, setIsLineageOpen] = useState(false);
+  const [lifecycleOpen, setLifecycleOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<API['status']>(api.status);
+  const [statusNote, setStatusNote] = useState('');
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const sections = useMemo(() => [
     { id: 'overview', label: t('doc.sections.basicInfo') },
@@ -1232,6 +1250,32 @@ export function ApiDocContent({ api }: { api: API }) {
     { id: 'status', label: t('doc.tabs.status') },
     { id: 'example', label: t('doc.tabs.example') },
   ], [t]);
+
+  const contentRef = useRef<HTMLDivElement>(null);
+  const overviewRef = useRef<HTMLDivElement>(null);
+
+  const versionOptions = useMemo(() => {
+    const list = versions.length > 0 ? versions : [api];
+    const parse = (v: string) => v.split('.').map((n) => Number(n));
+    const compare = (a: string, b: string) => {
+      const av = parse(a);
+      const bv = parse(b);
+      const len = Math.max(av.length, bv.length);
+      for (let i = 0; i < len; i += 1) {
+        const left = av[i] ?? 0;
+        const right = bv[i] ?? 0;
+        if (left === right) continue;
+        return right - left;
+      }
+      return 0;
+    };
+    return [...list].sort((a, b) => compare(a.version, b.version));
+  }, [api, versions]);
+
+  const statusLabel =
+    api.status === 'active'
+      ? t('doc.lifecycle.active', { defaultValue: 'Active' })
+      : t('doc.lifecycle.deprecated', { defaultValue: 'Deprecated' });
 
   const scrollTo = (id: string, pushState = true) => {
     const el = document.getElementById(`doc-section-${id}`);
@@ -1256,15 +1300,27 @@ export function ApiDocContent({ api }: { api: API }) {
   }, []);
 
   useEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
-        const visible = entries.find((e) => e.isIntersecting);
+        const scrollTop = root.scrollTop;
+        const overviewHeight = overviewRef.current?.offsetHeight ?? 0;
+        const ignoreOverview = scrollTop > Math.max(overviewHeight - 48, 120);
+        const visible = entries
+          .filter((e) => e.isIntersecting && (!ignoreOverview || e.target.id !== 'doc-section-overview'))
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (visible) {
           const id = visible.target.id.replace('doc-section-', '');
           setActiveSection(id);
         }
       },
-      { rootMargin: '-10% 0px -80% 0px', threshold: 0 }
+      {
+        root,
+        rootMargin: '-10% 0px -80% 0px',
+        threshold: 0,
+      },
     );
 
     sections.forEach((s) => {
@@ -1274,6 +1330,31 @@ export function ApiDocContent({ api }: { api: API }) {
 
     return () => observer.disconnect();
   }, [api.id, sections]);
+
+  const handleLifecycleSave = () => {
+    if (pendingStatus === api.status) {
+      setLifecycleOpen(false);
+      return;
+    }
+    if (!statusNote.trim()) {
+      setStatusError(t('doc.lifecycle.noteRequired', { defaultValue: 'Please provide a change reason.' }));
+      return;
+    }
+    setStatusError(null);
+    setConfirmOpen(true);
+  };
+
+  const applyStatusChange = () => {
+    window.dispatchEvent(
+      new CustomEvent('eda:api-doc-updated', {
+        detail: { apiId: api.id, patch: { status: pendingStatus } },
+      }),
+    );
+    setStatusNote('');
+    setStatusError(null);
+    setConfirmOpen(false);
+    setLifecycleOpen(false);
+  };
 
   return (
     <div className="flex flex-col md:flex-row h-full relative items-start overflow-hidden">
@@ -1303,7 +1384,7 @@ export function ApiDocContent({ api }: { api: API }) {
       )}
 
       {/* Desktop Sidebar */}
-      <nav className="hidden md:block w-[240px] flex-shrink-0 h-full overflow-y-auto border-r p-4">
+      <nav className="hidden md:block w-[240px] flex-shrink-0 h-full overflow-y-auto border-r p-4 md:sticky md:top-0 md:max-h-screen">
         <div
           className="space-y-1"
           onClick={(e) => {
@@ -1331,14 +1412,36 @@ export function ApiDocContent({ api }: { api: API }) {
       </nav>
 
       {/* Content Area */}
-      <div id="doc-content-area" className="flex-1 min-w-0 h-full overflow-y-auto p-4 sm:p-6 space-y-10 pb-10">
-        <section id="doc-section-overview" className="scroll-mt-4">
-          <div className="flex items-center justify-between mb-4">
+      <div 
+        id="doc-content-area" 
+        ref={contentRef}
+        className="flex-1 min-w-0 h-full overflow-y-auto p-4 sm:p-6 space-y-10 pb-10 scroll-smooth"
+      >
+        <section
+          id="doc-section-overview"
+          ref={overviewRef}
+          className={`scroll-mt-4 sticky top-0 z-20 backdrop-blur-sm border-b pb-4 -mx-4 sm:-mx-6 px-4 sm:px-6 ${
+            activeSection === 'overview' ? 'bg-primary/5 ring-1 ring-primary/30' : 'bg-background/95'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-4 pt-4">
             <h3 className="text-lg font-semibold mb-0">{t('doc.sections.basicInfo')}</h3>
-            <Button variant="outline" size="sm" onClick={() => setIsLineageOpen(true)}>
-              <Network className="w-4 h-4 mr-2" />
-              {t('actions.lineage', { defaultValue: 'Lineage' })}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setIsLineageOpen(true)}>
+                <Network className="w-4 h-4 mr-2" />
+                {t('actions.lineage', { defaultValue: 'Lineage' })}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('eda:navigate', { detail: { view: 'api-builder' } }));
+                }}
+              >
+                <PenTool className="w-4 h-4 mr-2" />
+                {t('doc.actions.openBuilder', { defaultValue: 'API Builder' })}
+              </Button>
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-6">
             <div>
@@ -1357,11 +1460,26 @@ export function ApiDocContent({ api }: { api: API }) {
                 {api.method}
               </Badge>
             </div>
-            <div className="min-w-0 flex items-center">
+            <div className="min-w-0 flex items-center gap-2">
               <span className="text-muted-foreground flex-shrink-0">{t('doc.labels.version')}</span>
-              <span className="ml-2 truncate" title={api.version}>
-                {api.version}
-              </span>
+              <Select
+                value={api.id}
+                onValueChange={(value) => {
+                  const next = versionOptions.find((v) => v.id === value);
+                  if (next && onVersionChange) onVersionChange(next);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[140px]">
+                  <SelectValue placeholder={`v${api.version}`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {versionOptions.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      v{v.version}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="min-w-0 flex items-center">
               <span className="text-muted-foreground flex-shrink-0">{t('doc.labels.authType')}</span>
@@ -1375,12 +1493,34 @@ export function ApiDocContent({ api }: { api: API }) {
                 {api.domain}
               </span>
             </div>
+            <div className="min-w-0 flex items-center gap-2">
+              <span className="text-muted-foreground flex-shrink-0">{t('doc.labels.status', { defaultValue: 'Status' })}</span>
+              <Badge className={api.status === 'active' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}>
+                {statusLabel}
+              </Badge>
+              <Button variant="ghost" size="sm" onClick={() => setLifecycleOpen(true)}>
+                {t('actions.edit', { defaultValue: 'Edit' })}
+              </Button>
+            </div>
           </div>
 
           <h3 className="mb-2 text-base font-medium">{t('doc.sections.requestPath')}</h3>
           <code className="block bg-muted p-3 rounded text-sm font-mono whitespace-pre overflow-x-auto max-w-full">
             {api.method} {api.path}
           </code>
+        </section>
+
+        <div className="w-full h-px bg-border" />
+
+        <section id="doc-section-lineage" className="scroll-mt-4">
+          <h3 className="mb-4 text-lg font-semibold">{t('doc.tabs.lineage', { defaultValue: 'Lineage' })}</h3>
+          <Card className="p-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="text-sm text-muted-foreground">
+                {t('doc.sections.lineageHint', { defaultValue: 'Explore the upstream and downstream lineage of this API.' })}
+              </div>
+            </div>
+          </Card>
         </section>
 
         <div className="w-full h-px bg-border" />
@@ -1443,6 +1583,111 @@ export function ApiDocContent({ api }: { api: API }) {
           </div>
         </section>
       </div>
+
+      <Dialog open={isLineageOpen} onOpenChange={setIsLineageOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{t('actions.lineage', { defaultValue: 'Lineage' })}</DialogTitle>
+          </DialogHeader>
+          <LineageGraph data={api} type="api" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsLineageOpen(false)}>
+              {t('actions.close', { defaultValue: 'Close' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={lifecycleOpen}
+        onOpenChange={(open) => {
+          setLifecycleOpen(open);
+          if (open) {
+            setPendingStatus(api.status);
+            setStatusNote('');
+            setStatusError(null);
+            setConfirmOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('doc.lifecycle.title', { defaultValue: 'Lifecycle Management' })}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div className="space-y-2">
+              <div className="text-muted-foreground">{t('doc.lifecycle.current', { defaultValue: 'Current Status' })}</div>
+              <Badge className={api.status === 'active' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}>
+                {statusLabel}
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              <div className="text-muted-foreground">{t('doc.lifecycle.target', { defaultValue: 'Target Status' })}</div>
+              <Select value={pendingStatus} onValueChange={(value) => setPendingStatus(value as API['status'])}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">{t('doc.lifecycle.active', { defaultValue: 'Active' })}</SelectItem>
+                  <SelectItem value="deprecated">{t('doc.lifecycle.deprecated', { defaultValue: 'Deprecated' })}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <div className="text-muted-foreground">{t('doc.lifecycle.note', { defaultValue: 'Change Reason' })}</div>
+              <Input
+                value={statusNote}
+                onChange={(e) => {
+                  setStatusNote(e.target.value);
+                  if (statusError) setStatusError(null);
+                }}
+                placeholder={t('doc.lifecycle.notePlaceholder', { defaultValue: 'Provide a reason for the change' })}
+              />
+              {statusError && <div className="text-sm text-destructive">{statusError}</div>}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLifecycleOpen(false)}>
+              {t('actions.cancel', { defaultValue: 'Cancel' })}
+            </Button>
+            <Button onClick={handleLifecycleSave}>
+              {t('actions.save', { defaultValue: 'Save' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('doc.lifecycle.confirmTitle', { defaultValue: 'Confirm Status Change' })}</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            {t('doc.lifecycle.confirmBody', {
+              defaultValue: 'You are about to change the API status. This action affects consumers and documentation.',
+            })}
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <Badge className={api.status === 'active' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}>
+              {statusLabel}
+            </Badge>
+            <span className="text-muted-foreground">→</span>
+            <Badge className={pendingStatus === 'active' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}>
+              {pendingStatus === 'active'
+                ? t('doc.lifecycle.active', { defaultValue: 'Active' })
+                : t('doc.lifecycle.deprecated', { defaultValue: 'Deprecated' })}
+            </Badge>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              {t('actions.cancel', { defaultValue: 'Cancel' })}
+            </Button>
+            <Button onClick={applyStatusChange}>
+              {t('actions.confirm', { defaultValue: 'Confirm' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

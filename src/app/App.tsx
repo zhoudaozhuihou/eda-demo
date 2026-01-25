@@ -21,6 +21,7 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [apiBuilderContext, setApiBuilderContext] = useState<APIBuilderContext | null>(null);
   const [detailApiId, setDetailApiId] = useState<string | null>(null);
+  const [detailApiVersion, setDetailApiVersion] = useState<string | null>(null);
   const [detailDatasetId, setDetailDatasetId] = useState<string | null>(null);
   const [language, setLanguage] = useState(i18n.language);
 
@@ -34,10 +35,11 @@ export default function App() {
       const stripped = stripLanguagePrefix(window.location.pathname);
       const parts = stripped.split('/').filter(Boolean);
       
-      // Handle /api/details/:id
+      // Handle /api/details/:id/:version?
       if (parts[0] === 'api' && parts[1] === 'details' && parts[2]) {
         setActiveView('api-details');
         setDetailApiId(parts[2]);
+        setDetailApiVersion(parts[3] ?? null);
         return;
       }
 
@@ -66,10 +68,13 @@ export default function App() {
       
       if (view === 'api-details') {
         const id = evt.detail?.params?.id;
+        const version = evt.detail?.params?.version;
         if (id) {
           setDetailApiId(id);
+          setDetailApiVersion(version ?? null);
           setActiveView(view);
-          window.history.pushState(null, '', withLanguagePrefix(`/api/details/${id}`, i18n.language as 'en-US' | 'zh-CN'));
+          const suffix = version ? `/${id}/${version}` : `/${id}`;
+          window.history.pushState(null, '', withLanguagePrefix(`/api/details${suffix}`, i18n.language as 'en-US' | 'zh-CN'));
           return;
         }
       }
@@ -138,7 +143,7 @@ export default function App() {
       case 'api-catalog':
         return <APICatalog />;
       case 'api-details':
-        return detailApiId ? <ApiDetailsPage apiId={detailApiId} /> : <NotFound />;
+        return detailApiId ? <ApiDetailsPage apiId={detailApiId} apiVersion={detailApiVersion ?? undefined} /> : <NotFound />;
       case 'dataset-details':
         return detailDatasetId ? <DatasetDetailsPage datasetId={detailDatasetId} /> : <NotFound />;
       case 'approval':

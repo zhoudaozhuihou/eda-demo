@@ -6,7 +6,7 @@ import { ApiDocContent } from './ApiDocContent';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchCatalogApis } from '@/features/api-catalog/store';
 
-export function ApiDetailsPage({ apiId }: { apiId: string }) {
+export function ApiDetailsPage({ apiId, apiVersion }: { apiId: string; apiVersion?: string }) {
   const { t } = useTranslation('apiCatalog');
   const dispatch = useAppDispatch();
   const apis = useAppSelector((s) => s.apiCatalog.items);
@@ -18,7 +18,32 @@ export function ApiDetailsPage({ apiId }: { apiId: string }) {
     }
   }, [dispatch, status]);
 
-  const api = useMemo(() => apis.find((a) => a.id === apiId), [apis, apiId]);
+  const apiById = useMemo(() => apis.find((a) => a.id === apiId), [apis, apiId]);
+  const api = useMemo(() => {
+    if (!apiVersion) return apiById;
+    return apis.find((a) => a.id === apiId && a.version === apiVersion) ?? apiById;
+  }, [apiById, apiId, apiVersion, apis]);
+
+  const versionOptions = useMemo(() => {
+    if (!api) return [];
+    const candidates = apis.filter(
+      (a) => a.name === api.name && a.method === api.method && a.domain === api.domain,
+    );
+    const parseVersion = (v: string) => v.split('.').map((n) => Number(n));
+    const compare = (a: string, b: string) => {
+      const av = parseVersion(a);
+      const bv = parseVersion(b);
+      const len = Math.max(av.length, bv.length);
+      for (let i = 0; i < len; i += 1) {
+        const left = av[i] ?? 0;
+        const right = bv[i] ?? 0;
+        if (left === right) continue;
+        return right - left;
+      }
+      return 0;
+    };
+    return [...candidates].sort((a, b) => compare(a.version, b.version));
+  }, [api, apis]);
 
   const onBack = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -64,7 +89,18 @@ export function ApiDetailsPage({ apiId }: { apiId: string }) {
         </div>
       </div>
       <div className="flex-1 min-h-0 overflow-hidden">
-        <ApiDocContent api={api} />
+        <ApiDocContent
+          key={api.id}
+          api={api}
+          versions={versionOptions}
+          onVersionChange={(next) => {
+            window.dispatchEvent(
+              new CustomEvent('eda:navigate', {
+                detail: { view: 'api-details', params: { id: next.id, version: next.version } },
+              }),
+            );
+          }}
+        />
       </div>
     </div>
   );

@@ -81,6 +81,7 @@ export function DatasetDetailsPage({ datasetId }: DatasetDetailsPageProps) {
       />
       
       <DatasetFormDialog
+        key={isEditOpen ? `dataset-detail-edit-${dataset.id}` : 'dataset-detail-edit-closed'}
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
         initialData={dataset}

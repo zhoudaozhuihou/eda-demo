@@ -769,6 +769,7 @@ export function Datasets() {
       </div>
 
       <DatasetFormDialog
+        key={isCreateOpen ? 'dataset-create-open' : 'dataset-create-closed'}
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
         initialData={null}
@@ -776,6 +777,7 @@ export function Datasets() {
       />
 
       <DatasetFormDialog
+        key={isEditOpen ? `dataset-edit-${editTargetId ?? 'none'}` : 'dataset-edit-closed'}
         open={isEditOpen}
         onOpenChange={(open) => {
           setIsEditOpen(open);

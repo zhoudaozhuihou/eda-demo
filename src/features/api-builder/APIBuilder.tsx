@@ -7,6 +7,7 @@ import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Badge } from '@/app/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/app/components/ui/alert';
 import {
   Table,
   TableBody,
@@ -15,9 +16,52 @@ import {
   TableHeader,
   TableRow,
 } from '@/app/components/ui/table';
-import { ArrowRight, ArrowLeft, CheckCircle, AlertTriangle, Sparkles, Plus, X, Link2, Syringe, Layers2, Search, ChevronDown, ChevronRight, Pin, PinOff, BarChart2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle, AlertTriangle, Sparkles, Plus, X, Link2, Syringe, Layers2, Search, ChevronDown, ChevronRight, Pin, PinOff, BarChart2, Database, FolderPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+
+// Mock Data for Connections
+const MOCK_CONNECTIONS = [
+  { id: 'conn_1', name: 'Production DB (MySQL)', type: 'MySQL' },
+  { id: 'conn_2', name: 'Analytics DB (ClickHouse)', type: 'ClickHouse' },
+  { id: 'conn_3', name: 'MaxCompute Prod', type: 'MaxCompute' },
+];
+
+type TableInfo = {
+  name: string;
+  type: 'TABLE' | 'VIEW';
+  createdAt: string;
+};
+
+// Mock Data for Tables
+const MOCK_TABLES: Record<string, TableInfo[]> = {
+  conn_1: [
+    { name: 'user_orders', type: 'TABLE', createdAt: '2024-08-12 09:32' },
+    { name: 'product_info', type: 'TABLE', createdAt: '2024-06-01 14:05' },
+    { name: 'customer_profile', type: 'VIEW', createdAt: '2024-05-22 18:40' },
+    { name: 'order_items', type: 'TABLE', createdAt: '2024-04-10 11:21' },
+    { name: 'refund_records', type: 'TABLE', createdAt: '2024-03-03 08:12' },
+    { name: 'user_order_summary', type: 'VIEW', createdAt: '2024-02-15 16:30' },
+  ],
+  conn_2: [
+    { name: 'ads_sales_daily', type: 'TABLE', createdAt: '2024-09-02 09:00' },
+    { name: 'ads_user_retention', type: 'TABLE', createdAt: '2024-09-01 09:00' },
+    { name: 'ads_campaign_overview', type: 'VIEW', createdAt: '2024-08-20 10:15' },
+    { name: 'ads_cost_breakdown', type: 'TABLE', createdAt: '2024-08-05 13:50' },
+  ],
+  conn_3: [
+    { name: 'dwd_transaction_log', type: 'TABLE', createdAt: '2024-07-28 07:30' },
+    { name: 'dim_sku_info', type: 'TABLE', createdAt: '2024-07-16 12:10' },
+    { name: 'dws_user_activity', type: 'VIEW', createdAt: '2024-07-10 15:45' },
+  ],
+};
+
+// Mock Data for Table -> Dataset Mapping
+const INITIAL_DATASET_MAPPING: Record<string, { id: string; name: string; alias: string; domain: string }> = {
+  'conn_1:user_orders': { id: 'ds_1', name: 'user_orders', alias: 'User Orders Dataset', domain: 'Order' },
+  'conn_1:product_info': { id: 'ds_2', name: 'product_info', alias: 'Product Info Dataset', domain: 'Product' },
+  // 'conn_1:customer_profile' is unmapped to test creation flow
+};
 
 interface Field {
   name: string;
@@ -49,7 +93,7 @@ interface BatchAPIConfig {
   enabled: boolean;
 }
 
-type DatabaseType = 'MySQL' | 'PostgreSQL' | 'ClickHouse' | 'Oracle' | 'MongoDB' | 'Redis' | 'BigQuery' | 'MaxCompute';
+type DatabaseType = 'MySQL' | 'PostgreSQL' | 'SQL Server' | 'ClickHouse' | 'Oracle' | 'MongoDB' | 'Redis' | 'BigQuery' | 'MaxCompute';
 
 export type APIBuilderContext = {
   source: 'dataset';
@@ -107,12 +151,22 @@ export function APIBuilder({
 
   const [sqlQuery, setSqlQuery] = useState('');
   
+  // New State for Data Source Linkage
+  const [selectedConnection, setSelectedConnection] = useState<string>('');
+  const [selectedTable, setSelectedTable] = useState<string>('');
+  const [datasetStatus, setDatasetStatus] = useState<'idle' | 'found' | 'not_found'>('idle');
+  const [linkedDataset, setLinkedDataset] = useState<{ id: string; name: string; alias: string; domain: string } | null>(null);
+  const [datasetMapping, setDatasetMapping] = useState(INITIAL_DATASET_MAPPING);
+
   // Large Dataset & Virtual Scroll State
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  const [tableSearch, setTableSearch] = useState('');
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePageSize, setTablePageSize] = useState(20);
 
   const generateLargeDataset = () => {
     setLoading(true);
@@ -185,8 +239,35 @@ export function APIBuilder({
     return grouped;
   }, [fields, searchTerm]);
 
+  const paramStats = useMemo(() => {
+    const params = fields.filter((f) => f.isParam);
+    return {
+      required: params.filter((f) => f.isRequired).length,
+      optional: params.filter((f) => !f.isRequired).length,
+    };
+  }, [fields]);
+
+  const filteredTables = useMemo(() => {
+    const list = selectedConnection ? MOCK_TABLES[selectedConnection] || [] : [];
+    if (!tableSearch.trim()) return list;
+    const keyword = tableSearch.trim().toLowerCase();
+    return list.filter((table) => table.name.toLowerCase().includes(keyword));
+  }, [selectedConnection, tableSearch]);
+
+  const totalTables = filteredTables.length;
+  const totalTablePages = Math.max(1, Math.ceil(totalTables / tablePageSize));
+  const currentTablePage = Math.min(tablePage, totalTablePages);
+  const tableStartIndex = (currentTablePage - 1) * tablePageSize;
+  const pagedTables = filteredTables.slice(tableStartIndex, tableStartIndex + tablePageSize);
+  const tableRangeStart = totalTables === 0 ? 0 : tableStartIndex + 1;
+  const tableRangeEnd = Math.min(tableStartIndex + tablePageSize, totalTables);
+
   const flatList = useMemo(() => {
-    const list: Array<{ type: 'header' | 'row'; data: { name: string; count: number } | Field; originalIndex?: number }> = [];
+    type FlatListItem = 
+      | { type: 'header'; data: { name: string; count: number }; originalIndex?: undefined }
+      | { type: 'row'; data: Field; originalIndex: number };
+
+    const list: FlatListItem[] = [];
     Object.entries(processedFields).forEach(([group, groupFields]) => {
       list.push({ type: 'header', data: { name: group, count: groupFields.length } });
       if (!collapsedGroups.has(group)) {
@@ -216,20 +297,6 @@ export function APIBuilder({
       { id: 5, name: t('steps.5.name'), desc: t('steps.5.desc') },
     ];
   }, [t]);
-
-  const datasetOptions = useMemo(() => {
-    const base = [
-      { name: 'user_orders', alias: t('datasets.userOrders'), domain: t('domains.order') },
-      { name: 'product_info', alias: t('datasets.productInfo'), domain: t('domains.product') },
-      { name: 'customer_profile', alias: t('datasets.customerProfile'), domain: t('domains.user') },
-      { name: 'inventory_data', alias: t('datasets.inventoryData'), domain: t('domains.inventory') },
-    ];
-
-    if (context?.source !== 'dataset') return base;
-    const exists = base.some((d) => d.name === context.datasetName);
-    if (exists) return base;
-    return [{ name: context.datasetName, alias: context.datasetAlias, domain: context.domain }, ...base];
-  }, [context, t]);
 
   useEffect(() => {
     if (!context) return;
@@ -267,7 +334,28 @@ export function APIBuilder({
     });
 
     return () => window.cancelAnimationFrame(raf);
-  }, [context, onClearContext]);
+  }, [context, onClearContext, t]);
+
+  const handleFormatSQL = () => {
+    // Mock format
+    setSqlQuery((prev) => prev.trim());
+    toast.success(t('toast.sqlFormatted') || 'SQL formatted');
+  };
+
+  const handleSyntaxCheck = () => {
+    // Mock check
+    toast.success(t('toast.syntaxValid') || 'Syntax valid');
+  };
+
+  const handleRunTest = () => {
+    // Mock run
+    toast.success(t('toast.testRunSuccess') || 'Test run successful');
+  };
+
+  const handleSubmit = () => {
+    // Mock submit
+    toast.success(t('toast.apiSubmitted') || 'API submitted successfully');
+  };
 
   const addJoinTable = () => {
     setJoinTables([
@@ -295,6 +383,9 @@ export function APIBuilder({
   const toggleFieldParam = (index: number) => {
     const newFields = [...fields];
     newFields[index].isParam = !newFields[index].isParam;
+    if (!newFields[index].isParam) {
+      newFields[index].isRequired = false;
+    }
     setFields(newFields);
   };
 
@@ -349,6 +440,7 @@ export function APIBuilder({
     switch (databaseType) {
       case 'MySQL':
       case 'PostgreSQL':
+      case 'SQL Server':
       case 'Oracle':
         sql = generateRelationalSQL(returnFields, paramFields);
         break;
@@ -369,6 +461,36 @@ export function APIBuilder({
     }
 
     setSqlQuery(sql);
+  };
+
+  const validateStep = (step: number) => {
+    if (step === 2 && buildMode !== 'batch') {
+      if (!selectedConnection) {
+        toast.error('请先选择数据库连接');
+        return false;
+      }
+      if (!selectedTable) {
+        toast.error('请先选择表或视图');
+        return false;
+      }
+      if (!apiConfig.dataset) {
+        toast.error('请先关联或创建数据集');
+        return false;
+      }
+    }
+
+    if (step === 3 && buildMode !== 'batch') {
+      if (!fields.some((f) => f.isReturn)) {
+        toast.error('请至少选择一个返回字段');
+        return false;
+      }
+      if (fields.some((f) => f.isRequired && !f.isParam)) {
+        toast.error('必填参数必须勾选为请求参数');
+        return false;
+      }
+    }
+
+    return true;
   };
 
   const generateRelationalSQL = (returnFields: Field[], paramFields: Field[]) => {
@@ -402,7 +524,8 @@ export function APIBuilder({
     const whereClause = paramFields.map((f) => {
       const tableName = f.table || mainTable;
       const col = buildMode === 'join' ? `${tableName}.${f.name}` : f.name;
-      return `  AND ${col} = :${f.name}`;
+      const condition = `${col} = :${f.name}`;
+      return f.isRequired ? `  AND ${condition}` : `  AND (${condition} OR :${f.name} IS NULL)`;
     }).join('\n');
 
     const injectComment = buildMode === 'inject' ? `\n-- ${t('sql.comments.injectPoint')}` : '';
@@ -417,7 +540,10 @@ LIMIT 20 OFFSET 0;  -- ${t('sql.comments.pagination')}`;
   };
 
   const generateClickHouseSQL = (returnFields: Field[], paramFields: Field[]) => {
-    const whereClause = paramFields.map((f) => `  AND ${f.name} = {${f.name}:${f.type}}`).join('\n');
+    const whereClause = paramFields.map((f) => {
+      const condition = `${f.name} = {${f.name}:${f.type}}`;
+      return f.isRequired ? `  AND ${condition}` : `  AND (${condition} OR {${f.name}:${f.type}} IS NULL)`;
+    }).join('\n');
     
     return `SELECT 
   ${returnFields.map(f => f.alias ? `${f.name} AS ${f.alias}` : f.name).join(',\n  ')}
@@ -430,10 +556,20 @@ SETTINGS max_execution_time = 60;  -- ${t('sql.comments.clickhouseSettings')}`;
   };
 
   const generateMongoQuery = (returnFields: Field[], paramFields: Field[]) => {
-    const filterObj: Record<string, string> = {};
-    paramFields.forEach((f) => {
-      filterObj[f.name] = `<${f.name}>`;
+    const filterConditions = paramFields.map((f) => {
+      const placeholder = `<${f.name}>`;
+      if (f.isRequired) {
+        return { [f.name]: placeholder };
+      }
+      return {
+        $or: [
+          { [f.name]: placeholder },
+          { $expr: { $eq: [placeholder, null] } },
+        ],
+      };
     });
+
+    const filterObj = filterConditions.length ? { $and: filterConditions } : {};
 
     const projectionObj: Record<string, number> = {};
     returnFields.forEach((f) => {
@@ -450,7 +586,10 @@ SETTINGS max_execution_time = 60;  -- ${t('sql.comments.clickhouseSettings')}`;
   };
 
   const generateBigQuerySQL = (returnFields: Field[], paramFields: Field[]) => {
-    const whereClause = paramFields.map((f) => `  AND ${f.name} = @${f.name}`).join('\n');
+    const whereClause = paramFields.map((f) => {
+      const condition = `${f.name} = @${f.name}`;
+      return f.isRequired ? `  AND ${condition}` : `  AND (${condition} OR @${f.name} IS NULL)`;
+    }).join('\n');
     
     return `SELECT 
   ${returnFields.map(f => f.alias ? `${f.name} AS ${f.alias}` : f.name).join(',\n  ')}
@@ -463,7 +602,10 @@ OFFSET 0;  -- ${t('sql.comments.pagination')}`;
   };
 
   const generateMaxComputeSQL = (returnFields: Field[], paramFields: Field[]) => {
-    const whereClause = paramFields.map((f) => `  AND ${f.name} = \${${f.name}}`).join('\n');
+    const whereClause = paramFields.map((f) => {
+      const condition = `${f.name} = \${${f.name}}`;
+      return f.isRequired ? `  AND ${condition}` : `  AND (${condition} OR \${${f.name}} IS NULL)`;
+    }).join('\n');
     
     return `SELECT 
   ${returnFields.map(f => f.alias ? `${f.name} AS ${f.alias}` : f.name).join(',\n  ')}
@@ -472,6 +614,61 @@ WHERE 1=1
 ${whereClause}
 ORDER BY created_at DESC
 LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
+  };
+
+  const handleCreateDataset = () => {
+    if (!selectedConnection || !selectedTable) return;
+    
+    const key = `${selectedConnection}:${selectedTable}`;
+    const newDataset = {
+      id: `ds_${Date.now()}`,
+      name: selectedTable,
+      alias: `${selectedTable} Dataset`,
+      domain: 'Custom'
+    };
+    
+    setDatasetMapping(prev => ({
+      ...prev,
+      [key]: newDataset
+    }));
+    
+    setDatasetStatus('found');
+    setLinkedDataset(newDataset);
+    
+    // Auto-select the new dataset
+    setApiConfig(prev => ({ 
+      ...prev, 
+      dataset: newDataset.name, 
+      name: toSnakeCase(newDataset.name) 
+    }));
+    
+    toast.success('Dataset created and linked successfully!');
+  };
+
+  const handleTableSelect = (table: string) => {
+    setSelectedTable(table);
+    const key = `${selectedConnection}:${table}`;
+    const mapping = datasetMapping[key];
+    
+    if (mapping) {
+      setDatasetStatus('found');
+      setLinkedDataset(mapping);
+      setApiConfig(prev => ({ 
+        ...prev, 
+        dataset: mapping.name, 
+        name: toSnakeCase(mapping.name) 
+      }));
+      
+      // Simulating field load
+      if (!fields.some(f => f.table === mapping.name)) {
+         const newFields = fields.map(f => ({ ...f, table: mapping.name }));
+         setFields(newFields);
+      }
+    } else {
+      setDatasetStatus('not_found');
+      setLinkedDataset(null);
+      setApiConfig(prev => ({ ...prev, dataset: '' })); // Clear dataset
+    }
   };
 
   return (
@@ -637,33 +834,205 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
             </div>
 
             <div className="space-y-4">
+              {/* Connection Selection */}
               <div className="space-y-2">
-                <Label>{t('dataSource.dataset.label')}</Label>
+                <Label>Database Connection</Label>
                 <Select
-                  value={apiConfig.dataset}
-                  onValueChange={(value) => {
-                    const newName = toSnakeCase(value);
-                    setApiConfig({ ...apiConfig, dataset: value, name: newName });
-                    // Simulating field load for preview
-                    if (!fields.some(f => f.table === value)) {
-                       const newFields = fields.map(f => ({ ...f, table: value }));
-                       setFields(newFields);
-                    }
+                  value={selectedConnection}
+                  onValueChange={(val) => {
+                    setSelectedConnection(val);
+                    setSelectedTable('');
+                    setDatasetStatus('idle');
+                    setLinkedDataset(null);
+                    setApiConfig(prev => ({ ...prev, dataset: '' }));
+                    setTableSearch('');
+                    setTablePage(1);
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t('dataSource.dataset.placeholder')} />
+                    <SelectValue placeholder="Select Database Connection" />
                   </SelectTrigger>
                   <SelectContent>
-                    {datasetOptions.map((d) => (
-                      <SelectItem key={d.name} value={d.name}>
-                        {d.name} ({d.alias})
+                    {MOCK_CONNECTIONS.map(conn => (
+                      <SelectItem key={conn.id} value={conn.id}>
+                        <div className="flex items-center gap-2">
+                          <Database className="size-4 text-muted-foreground" />
+                          <span>{conn.name}</span>
+                          <Badge variant="outline" className="ml-2 text-xs">{conn.type}</Badge>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <Label>Database Type</Label>
+                <Select value={databaseType} onValueChange={(value: DatabaseType) => setDatabaseType(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MySQL">MySQL</SelectItem>
+                    <SelectItem value="PostgreSQL">PostgreSQL</SelectItem>
+                    <SelectItem value="SQL Server">SQL Server</SelectItem>
+                    <SelectItem value="Oracle">Oracle</SelectItem>
+                    <SelectItem value="ClickHouse">ClickHouse</SelectItem>
+                    <SelectItem value="MongoDB">{t('dataSource.databaseType.options.mongoDb')}</SelectItem>
+                    <SelectItem value="BigQuery">{t('dataSource.databaseType.options.bigQuery')}</SelectItem>
+                    <SelectItem value="MaxCompute">{t('dataSource.databaseType.options.maxCompute')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedConnection && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label>Tables / Views</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Rows per page</span>
+                      <Select
+                        value={String(tablePageSize)}
+                        onValueChange={(value) => {
+                          setTablePageSize(Number(value));
+                          setTablePage(1);
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-[90px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">10</SelectItem>
+                          <SelectItem value="20">20</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                          <SelectItem value="100">100</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="relative w-64">
+                      <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search tables or views..."
+                        value={tableSearch}
+                        onChange={(e) => {
+                          setTableSearch(e.target.value);
+                          setTablePage(1);
+                        }}
+                        className="pl-8"
+                      />
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {tableRangeStart}-{tableRangeEnd} of {totalTables}
+                    </div>
+                  </div>
+
+                  <Card className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Created At</TableHead>
+                          <TableHead className="w-[120px] text-right">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pagedTables.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
+                              No tables or views found
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          pagedTables.map((table) => (
+                            <TableRow
+                              key={table.name}
+                              className={`cursor-pointer ${selectedTable === table.name ? 'bg-primary/5' : 'hover:bg-muted/50'}`}
+                              onClick={() => handleTableSelect(table.name)}
+                            >
+                              <TableCell className="font-mono">{table.name}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{table.type}</Badge>
+                              </TableCell>
+                              <TableCell>{table.createdAt}</TableCell>
+                              <TableCell className="text-right">
+                                {selectedTable === table.name ? (
+                                  <Badge variant="secondary">Selected</Badge>
+                                ) : (
+                                  <Button size="sm" variant="outline">
+                                    Select
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </Card>
+
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground">
+                      Page {currentTablePage} of {totalTablePages}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTablePage((prev) => Math.max(1, Math.min(totalTablePages, prev - 1)))}
+                        disabled={currentTablePage === 1}
+                      >
+                        Prev
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTablePage((prev) => Math.max(1, Math.min(totalTablePages, prev + 1)))}
+                        disabled={currentTablePage === totalTablePages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Dataset Linkage Status */}
+              {selectedTable && (
+                <div className="mt-4">
+                  {datasetStatus === 'found' && linkedDataset ? (
+                    <Alert className="bg-green-50 border-green-200">
+                      <CheckCircle className="size-4 text-green-600" />
+                      <AlertTitle className="text-green-800">Dataset Linked</AlertTitle>
+                      <AlertDescription className="text-green-700">
+                        Using dataset <strong>{linkedDataset.alias}</strong> ({linkedDataset.name})
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Alert className="bg-amber-50 border-amber-200">
+                      <AlertTriangle className="size-4 text-amber-600" />
+                      <AlertTitle className="text-amber-800">No Linked Dataset</AlertTitle>
+                      <AlertDescription className="text-amber-700 flex flex-col gap-2">
+                        <p>No dataset exists for this table yet. You must create one to proceed.</p>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="w-fit bg-white border-amber-300 hover:bg-amber-100 text-amber-900"
+                          onClick={handleCreateDataset}
+                        >
+                          <FolderPlus className="size-4 mr-2" />
+                          Create & Link Dataset
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
+
+              {/* Existing Field Preview (only show if dataset is linked) */}
               {apiConfig.dataset && (
                 <Card className="p-4 bg-muted/50">
                   <Label className="mb-3 block text-xs font-medium uppercase text-muted-foreground">{t('dataSource.fieldsPreview.label')}</Label>
@@ -694,6 +1063,7 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                 <SelectContent>
                   <SelectItem value="MySQL">MySQL</SelectItem>
                   <SelectItem value="PostgreSQL">PostgreSQL</SelectItem>
+                  <SelectItem value="SQL Server">SQL Server</SelectItem>
                   <SelectItem value="ClickHouse">ClickHouse</SelectItem>
                   <SelectItem value="MongoDB">{t('dataSource.databaseType.options.mongoDb')}</SelectItem>
                   <SelectItem value="BigQuery">{t('dataSource.databaseType.options.bigQuery')}</SelectItem>
@@ -854,7 +1224,15 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
 
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-4">
-                <h2>{t('params.title')}</h2>
+                <div className="flex items-center gap-3">
+                  <h2>{t('params.title')}</h2>
+                  <Badge className="bg-green-100 text-green-700">
+                    Required {paramStats.required}
+                  </Badge>
+                  <Badge className="bg-amber-100 text-amber-700">
+                    Optional {paramStats.optional}
+                  </Badge>
+                </div>
                 <div className="flex items-center gap-2 flex-1 justify-end">
                   <div className="relative w-64">
                     <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
@@ -903,8 +1281,9 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                       const top = i * ROW_HEIGHT;
                       
                       if (item.type === 'header') {
-                        const groupName = item.data.name;
-                        const count = item.data.count;
+                        const headerData = item.data as { name: string; count: number };
+                        const groupName = headerData.name;
+                        const count = headerData.count;
                         const isCollapsed = collapsedGroups.has(groupName);
                         
                         visibleItems.push(
@@ -969,15 +1348,25 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                               />
                             </div>
                             <div className="p-3 text-center">
-                              <Checkbox
-                                checked={field.isRequired}
-                                disabled={!field.isParam}
-                                onCheckedChange={() => {
-                                  const newFields = [...fields];
-                                  newFields[index].isRequired = !newFields[index].isRequired;
-                                  setFields(newFields);
-                                }}
-                              />
+                              <div className="flex flex-col items-center gap-1">
+                                <Checkbox
+                                  checked={field.isRequired}
+                                  disabled={!field.isParam}
+                                  onCheckedChange={() => {
+                                    const newFields = [...fields];
+                                    newFields[index].isRequired = !newFields[index].isRequired;
+                                    setFields(newFields);
+                                  }}
+                                />
+                                {field.isParam && (
+                                  <Badge
+                                    variant={field.isRequired ? 'default' : 'secondary'}
+                                    className="text-[10px]"
+                                  >
+                                    {field.isRequired ? 'Required' : 'Optional'}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                             <div className="p-3 text-center">
                               <Checkbox
@@ -1053,9 +1442,9 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                 placeholder={t('sql.editor.placeholder')}
               />
               <div className="flex items-center gap-2">
-                <Button variant="outline">{t('sql.actions.format')}</Button>
-                <Button variant="outline">{t('sql.actions.syntaxCheck')}</Button>
-                <Button>{t('sql.actions.runTest')}</Button>
+                <Button variant="outline" onClick={handleFormatSQL}>{t('sql.actions.format')}</Button>
+                <Button variant="outline" onClick={handleSyntaxCheck}>{t('sql.actions.syntaxCheck')}</Button>
+                <Button onClick={handleRunTest}>{t('sql.actions.runTest')}</Button>
               </div>
             </div>
 
@@ -1311,7 +1700,7 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                           </div>
                           <div>
                             <span className="text-muted-foreground">{t('preview.meta.latency')}:</span>
-                            <span className="ml-2 font-mono">~50ms</span>
+                            <span className="ml-2 font-mono">≤500ms</span>
                           </div>
                           <div className="col-span-2">
                             <span className="text-muted-foreground">{t('preview.meta.timestamp')}:</span>
@@ -1341,6 +1730,9 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
         {currentStep < 5 ? (
           <Button
             onClick={() => {
+              if (!validateStep(currentStep)) {
+                return;
+              }
               const nextStep = Math.min(5, currentStep + 1);
               if (nextStep === 4) {
                 generateSQL();
@@ -1352,7 +1744,7 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
             <ArrowRight className="size-4 ml-2" />
           </Button>
         ) : (
-          <Button className="bg-green-600 hover:bg-green-700">
+          <Button className="bg-green-600 hover:bg-green-700" onClick={handleSubmit}>
             <CheckCircle className="size-4 mr-2" />
             {buildMode === 'batch'
               ? t('nav.submitBatch', { count: batchAPIs.filter((api) => api.enabled).length })

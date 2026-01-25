@@ -82,6 +82,20 @@ const managementSlice = createSlice({
     teamRemoved: (state, action: PayloadAction<string>) => {
       state.teams = state.teams.filter((t) => t.id !== action.payload);
     },
+
+    // Member Actions
+    memberAdded: (state, action: PayloadAction<ManagementMember>) => {
+      state.members.unshift(action.payload);
+    },
+    memberUpdated: (state, action: PayloadAction<{ id: string; patch: Partial<Omit<ManagementMember, 'id'>> }>) => {
+      const idx = state.members.findIndex((m) => m.id === action.payload.id);
+      if (idx !== -1) {
+        state.members[idx] = { ...state.members[idx], ...action.payload.patch };
+      }
+    },
+    memberRemoved: (state, action: PayloadAction<string>) => {
+      state.members = state.members.filter((m) => m.id !== action.payload);
+    },
   },
   extraReducers: (builder) => {
     builder

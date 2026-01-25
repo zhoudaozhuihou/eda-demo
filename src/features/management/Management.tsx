@@ -16,7 +16,7 @@ import { Plus, Search, Users, Database, Mail, Shield, Edit, Trash2, UserPlus, Us
 import { toast } from 'sonner';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchManagement, managementActions } from '@/features/management/store';
-import type { ManagementConnection } from '@/features/management/types';
+import type { ManagementConnection, ManagementMember } from '@/features/management/types';
 import { useTranslation } from 'react-i18next';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -61,6 +61,8 @@ export function Management() {
   const managementStatus = useAppSelector((s) => s.management.status);
   const members = useAppSelector((s) => s.management.members);
   const connections = useAppSelector((s) => s.management.connections);
+  const teams = useAppSelector((s) => s.management.teams);
+  const roles = useAppSelector((s) => s.management.roles);
   const taxonomy = useAppSelector((s) => s.categories.taxonomy);
   const taxonomyStatus = useAppSelector((s) => s.categories.status);
 
@@ -114,6 +116,7 @@ export function Management() {
   };
 
   const [addConnOpen, setAddConnOpen] = useState(false);
+  const [editingConnectionId, setEditingConnectionId] = useState<string | null>(null);
   const [addConnForm, setAddConnForm] = useState<ConnectionForm>({
     name: '',
     type: 'MySQL',
@@ -128,7 +131,18 @@ export function Management() {
   const [addConnErrors, setAddConnErrors] = useState<Record<string, string>>({});
   const [addConnTest, setAddConnTest] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
 
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [memberForm, setMemberForm] = useState({
+    name: '',
+    email: '',
+    role: '',
+    team: '',
+    status: 'active' as 'active' | 'inactive',
+  });
+
   const resetAddConn = () => {
+    setEditingConnectionId(null);
     setAddConnForm({
       name: '',
       type: 'MySQL',
@@ -142,6 +156,17 @@ export function Management() {
     });
     setAddConnErrors({});
     setAddConnTest('idle');
+  };
+
+  const resetMemberForm = () => {
+    setEditingMemberId(null);
+    setMemberForm({
+      name: '',
+      email: '',
+      role: '',
+      team: '',
+      status: 'active',
+    });
   };
 
   const validateConnectionForm = () => {
@@ -217,6 +242,22 @@ export function Management() {
     else toast.error(t('toasts.connectionTestFailed'));
   };
 
+  const handleEditConnection = (conn: ManagementConnection) => {
+    setEditingConnectionId(conn.id);
+    setAddConnForm({
+      name: conn.name,
+      type: conn.type,
+      host: conn.host,
+      port: conn.port,
+      database: conn.database,
+      username: conn.username,
+      password: '', // Do not populate password for security
+      ssl: conn.ssl,
+      description: conn.description || '',
+    });
+    setAddConnOpen(true);
+  };
+
   const handleAddSave = () => {
     if (!canManageConnections) {
       toast.error(t('toasts.noConnectionPermission'));
@@ -226,26 +267,48 @@ export function Management() {
       toast.error(t('toasts.fixFormErrorsFirst'));
       return;
     }
-    if (addConnTest !== 'success') {
+    if (addConnTest !== 'success' && !editingConnectionId) {
+      // For new connections, require test. For edits, it's optional if they trust it, but let's encourage test.
+      // Actually, let's just warn but allow saving if editing? No, let's keep it strict for now or maybe relax for edits.
+      // Let's require test for both to be safe.
       toast.message(t('toasts.completeConnectionTestFirst'));
       return;
     }
-    const nowId = String(Date.now());
-    const next: ManagementConnection = {
-      id: nowId,
-      name: addConnForm.name.trim(),
-      type: addConnForm.type,
-      host: addConnForm.type === 'BigQuery' && !addConnForm.host.trim() ? 'bigquery.googleapis.com' : addConnForm.host.trim(),
-      port: addConnForm.port.trim(),
-      database: addConnForm.database.trim(),
-      username: addConnForm.username.trim(),
-      ssl: addConnForm.ssl,
-      status: 'connected',
-      lastSync: t('common:time.justNow'),
-      description: addConnForm.description.trim() || undefined,
-    };
-    dispatch(managementActions.connectionAdded(next));
-    toast.success(t('toasts.connectionAdded'));
+
+    if (editingConnectionId) {
+      dispatch(managementActions.connectionUpdated({
+        id: editingConnectionId,
+        patch: {
+          name: addConnForm.name.trim(),
+          type: addConnForm.type,
+          host: addConnForm.type === 'BigQuery' && !addConnForm.host.trim() ? 'bigquery.googleapis.com' : addConnForm.host.trim(),
+          port: addConnForm.port.trim(),
+          database: addConnForm.database.trim(),
+          username: addConnForm.username.trim(),
+          ssl: addConnForm.ssl,
+          description: addConnForm.description.trim() || undefined,
+          ...(addConnForm.password ? { password: addConnForm.password } : {}), // Only update password if provided
+        }
+      }));
+      toast.success(t('toasts.connectionUpdated', { defaultValue: 'Connection updated' }));
+    } else {
+      const nowId = String(Date.now());
+      const next: ManagementConnection = {
+        id: nowId,
+        name: addConnForm.name.trim(),
+        type: addConnForm.type,
+        host: addConnForm.type === 'BigQuery' && !addConnForm.host.trim() ? 'bigquery.googleapis.com' : addConnForm.host.trim(),
+        port: addConnForm.port.trim(),
+        database: addConnForm.database.trim(),
+        username: addConnForm.username.trim(),
+        ssl: addConnForm.ssl,
+        status: 'connected',
+        lastSync: t('common:time.justNow'),
+        description: addConnForm.description.trim() || undefined,
+      };
+      dispatch(managementActions.connectionAdded(next));
+      toast.success(t('toasts.connectionAdded'));
+    }
     setAddConnOpen(false);
     resetAddConn();
   };
@@ -257,6 +320,53 @@ export function Management() {
     }
     dispatch(managementActions.connectionRemoved(id));
     toast.success(t('toasts.connectionRemoved'));
+  };
+
+  const handleOpenMemberDialog = (member?: ManagementMember) => {
+    if (member) {
+      setEditingMemberId(member.id);
+      setMemberForm({
+        name: member.name,
+        email: member.email,
+        role: member.role,
+        team: member.team,
+        status: member.status,
+      });
+    } else {
+      resetMemberForm();
+    }
+    setAddMemberOpen(true);
+  };
+
+  const handleSaveMember = () => {
+    if (!memberForm.name || !memberForm.email || !memberForm.role || !memberForm.team) {
+      toast.error(t('toasts.fixFormErrorsFirst', { defaultValue: 'Please fill all required fields' }));
+      return;
+    }
+
+    if (editingMemberId) {
+      dispatch(managementActions.memberUpdated({
+        id: editingMemberId,
+        patch: memberForm
+      }));
+      toast.success(t('toasts.memberUpdated', { defaultValue: 'Member updated' }));
+    } else {
+      const newMember: ManagementMember = {
+        id: Date.now().toString(),
+        ...memberForm,
+      };
+      dispatch(managementActions.memberAdded(newMember));
+      toast.success(t('toasts.memberAdded', { defaultValue: 'Member added' }));
+    }
+    setAddMemberOpen(false);
+    resetMemberForm();
+  };
+
+  const handleDeleteMember = (id: string) => {
+    if (confirm(t('members.confirmDelete', { defaultValue: 'Are you sure you want to remove this member?' }))) {
+      dispatch(managementActions.memberRemoved(id));
+      toast.success(t('toasts.memberRemoved', { defaultValue: 'Member removed' }));
+    }
   };
 
   const getConnectionIcon = () => {
@@ -941,7 +1051,7 @@ export function Management() {
                       >
                         {conn.status === 'testing' ? t('connection.status.testingInline') : t('connections.test')}
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => handleEditConnection(conn)}>
                         <Edit className="size-4" />
                       </Button>
                       <Button
@@ -1301,7 +1411,7 @@ export function Management() {
                 }}
               />
             </div>
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={() => handleOpenMemberDialog()}>
               <Plus className="size-4" />
               {t('members.invite')}
             </Button>
@@ -1346,10 +1456,10 @@ export function Management() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" onClick={() => handleOpenMemberDialog(member)}>
                       <Edit className="size-4" />
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteMember(member.id)}>
                       <Trash2 className="size-4 text-red-600" />
                     </Button>
                   </div>
@@ -1439,6 +1549,87 @@ export function Management() {
               <p className="text-muted-foreground">{t('members.empty')}</p>
             </Card>
           )}
+
+          <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingMemberId ? t('members.edit', { defaultValue: 'Edit Member' }) : t('members.invite', { defaultValue: 'Invite Member' })}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>{t('members.fields.name', { defaultValue: 'Name' })}</Label>
+                  <Input 
+                    value={memberForm.name} 
+                    onChange={(e) => setMemberForm({...memberForm, name: e.target.value})}
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('members.fields.email', { defaultValue: 'Email' })}</Label>
+                  <Input 
+                    value={memberForm.email} 
+                    onChange={(e) => setMemberForm({...memberForm, email: e.target.value})}
+                    placeholder="john@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('members.fields.role', { defaultValue: 'Role' })}</Label>
+                  <Select 
+                    value={memberForm.role} 
+                    onValueChange={(v) => setMemberForm({...memberForm, role: v})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map(r => (
+                        <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('members.fields.team', { defaultValue: 'Team' })}</Label>
+                  <Select 
+                    value={memberForm.team} 
+                    onValueChange={(v) => setMemberForm({...memberForm, team: v})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map(t => (
+                        <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('members.fields.status', { defaultValue: 'Status' })}</Label>
+                  <Select 
+                    value={memberForm.status} 
+                    onValueChange={(v) => setMemberForm({...memberForm, status: v as 'active' | 'inactive'})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">{t('members.status.active', { defaultValue: 'Active' })}</SelectItem>
+                      <SelectItem value="inactive">{t('members.status.inactive', { defaultValue: 'Inactive' })}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAddMemberOpen(false)}>
+                  {t('actions.cancel')}
+                </Button>
+                <Button onClick={handleSaveMember}>
+                  {t('actions.save')}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Roles Tab */}

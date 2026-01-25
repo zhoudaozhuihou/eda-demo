@@ -81,8 +81,18 @@ describe('DataSourceMapping', () => {
     // Check for title or other elements
     expect(screen.getByText('Select Hologres Source')).toBeInTheDocument();
 
-    // Let's try to find the "Smart Match" button
-    const autoMatchBtn = screen.getByText('Smart Match');
+    // Select a connection to make the "Smart Match" button appear
+    const selectTrigger = screen.getByText('Select connection...');
+    fireEvent.click(selectTrigger);
+    
+    // MOCK_HOLO_CONNECTIONS has 'Hologres_Production'
+    fireEvent.click(await screen.findByText('Hologres_Production'));
+
+    // Now the button should be visible
+    const autoMatchBtn = await screen.findByTitle('Smart Match');
     expect(autoMatchBtn).toBeInTheDocument();
   });
 });
+
+// Mock scrollIntoView for Radix UI Select
+window.HTMLElement.prototype.scrollIntoView = vi.fn();
