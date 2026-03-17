@@ -92,3 +92,56 @@ if (env.features.mock) {
 
 详细管理规范请参考：[文档管理规范](docs/03_Development/Documentation_Standards.md)
 
+你是一个资深全栈工程师，请帮我构建一个企业级低代码 SQL Builder Web 应用。
+
+【目标】
+用户通过 UI 选择数据库、表、字段，并构建多表 JOIN，自动生成 SQL。
+
+【技术栈】
+React + TypeScript + Material UI + TailwindCSS + Redux Toolkit
+后端：FastAPI + PostgreSQL
+
+【核心功能】
+- 数据源选择
+- 表选择（支持多选）
+- JOIN 可视化构建（拖拽 + 连线）
+- 字段选择
+- WHERE 条件构建
+- SQL 实时预览
+
+【JOIN 规则（必须严格执行）】
+- 必须存在主表
+- 禁止循环 JOIN
+- 每个 JOIN 必须有 ON 条件
+- 禁止笛卡尔积
+- JOIN 顺序必须可解析
+- 自动生成表别名
+- 所有字段必须带别名
+
+【UI 布局】
+- 左：表结构树
+- 中：JOIN 画布
+- 右：字段 + 条件
+- 下：SQL 预览
+
+【状态管理】
+请使用 Redux 设计完整 Store
+
+【后端】
+请使用 FastAPI：
+- /databases
+- /tables
+- /columns
+- /generate-sql
+- /validate-sql
+
+【输出要求】
+请输出：
+1. 完整前端代码（组件化）
+2. Redux 状态设计
+3. 后端 API
+4. SQL 生成核心逻辑
+5. JOIN 校验算法
+6. 示例运行代码
+
+要求代码可运行、结构清晰、符合企业级规范
