@@ -410,3 +410,70 @@ Looping 的本质不是 Prompt，而是：
 ---
 
 # END
+
+---
+applyTo: "**"
+---
+
+# Looping workflow rules
+
+## Goal
+You are working in iterative delivery mode.
+Never stop after only editing code.
+Always validate the result before claiming completion.
+
+## Required loop
+For every requested feature or bugfix, follow this sequence:
+1. Understand the target and restate the acceptance criteria.
+2. Inspect related files and dependencies.
+3. Implement the smallest working change.
+4. Run lint.
+5. Run unit tests.
+6. Run build.
+7. If any command fails, analyze the failure and fix it.
+8. Repeat steps 4-7 until all required checks pass.
+9. Summarize changed files, risks, and remaining gaps.
+
+## Exit criteria
+Stop only when ALL are true:
+- build passes
+- lint passes
+- relevant tests pass
+- acceptance criteria are met
+- no obvious TODO left in changed code
+
+## Safety constraints
+- Do not rewrite unrelated modules
+- Keep file size under 1000 lines
+- Keep method size under 200 lines
+- Prefer minimal diff
+- If requirement is ambiguous, make the smallest reversible choice and document it
+
+
+# Implement in looping mode
+
+Task: ${input:task}
+
+Work in iterative delivery mode.
+
+Process:
+1. Analyze the task and identify acceptance criteria.
+2. Inspect related files.
+3. Implement the smallest useful change.
+4. Run project validation commands:
+   - npm run lint
+   - npm run test
+   - npm run build
+5. If any command fails:
+   - read the output carefully
+   - fix the root cause
+   - rerun the failed command
+6. Repeat until all checks pass.
+7. Return:
+   - changed files
+   - commands run
+   - failures encountered
+   - final status
+   - remaining risks
+
+Do not stop after code generation only.
