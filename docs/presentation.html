@@ -1,0 +1,2222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Agent — 企业级 AI Agent 系统 内部方案汇报</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ===========================================
+   FIXED 16:9 STAGE: MANDATORY BASE STYLES
+   =========================================== */
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #FDFAE7; }
+.deck-viewport { position: fixed; inset: 0; overflow: hidden; background: #FDFAE7; }
+.deck-stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; background: #FDFAE7; }
+.slide { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; display: block; visibility: hidden; opacity: 0; pointer-events: none; background: #FDFAE7; }
+.slide.active, .slide.visible { visibility: visible; opacity: 1; pointer-events: auto; z-index: 1; }
+img, video, canvas, svg { max-width: 100%; max-height: 100%; }
+.deck-controls { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 1000; }
+@media print { html, body { width: 1920px; height: auto; overflow: visible; background: #FDFAE7; } .deck-viewport { position: static; overflow: visible; background: #FDFAE7; } .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: #FDFAE7; } .slide { position: relative; display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; width: 1920px; height: 1080px; break-after: page; page-break-after: always; } .slide:last-child { break-after: auto; page-break-after: auto; } .deck-controls { display: none !important; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; } }
+
+/* ===========================================
+   BLUE PROFESSIONAL — CJK ADAPTED
+   Colors, typography, spacing, components
+   =========================================== */
+:root {
+  --bg: #FDFAE7;
+  --primary: #1E2BFA;
+  --text: #111111;
+  --text-muted: #6B6B6B;
+  --text-light: #9A9A9A;
+  --accent-light: rgba(30, 43, 250, 0.08);
+  --accent-medium: rgba(30, 43, 250, 0.15);
+  --border: rgba(30, 43, 250, 0.2);
+  --card-bg: rgba(30, 43, 250, 0.04);
+  --positive: #059669;
+  --negative: #DC2626;
+  --font-display: 'Noto Sans SC', sans-serif;
+  --font-body: 'Noto Sans SC', sans-serif;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ===========================================
+   SHARED COMPONENT STYLES
+   =========================================== */
+/* Slide header */
+.slide-header {
+  position: absolute;
+  top: 60px;
+  left: 80px;
+  right: 80px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 2;
+}
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0;
+  color: var(--primary);
+}
+
+.tag-pill {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--primary);
+  padding: 6px 16px;
+  background: var(--accent-light);
+  border-radius: 100px;
+}
+
+/* Section headline */
+.section-h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 36px;
+  line-height: 1.25;
+  color: var(--text);
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.section-h2 .highlight {
+  color: var(--primary);
+}
+
+/* Body text */
+.body-text {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Tinted card */
+.card {
+  background: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 26px;
+}
+
+.card-sm {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+}
+
+.card-xs {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+
+/* Accent line */
+.accent-line {
+  width: 60px;
+  height: 4px;
+  background: var(--primary);
+  border-radius: 2px;
+}
+
+/* Metric value */
+.metric-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 42px;
+  line-height: 1;
+  color: var(--primary);
+  letter-spacing: 0;
+}
+
+.metric-label {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.metric-desc {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* Stat cell */
+.stat-num {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--primary);
+  letter-spacing: 0;
+}
+
+.stat-name {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+/* Step circle */
+.step-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--bg);
+  flex-shrink: 0;
+}
+
+/* Change chip */
+.change-positive { color: var(--positive); font-weight: 600; font-size: 13px; font-family: var(--font-display); }
+.change-negative { color: var(--negative); font-weight: 600; font-size: 13px; font-family: var(--font-display); }
+
+/* Highlight block */
+.highlight-block {
+  background: var(--accent-light);
+  border-left: 4px solid var(--primary);
+  border-radius: 12px;
+  padding: 20px 24px;
+}
+
+/* Progress bar */
+.progress-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--primary);
+  z-index: 1000;
+  transition: width 0.4s ease;
+}
+
+/* Slide counter */
+.slide-counter {
+  position: fixed;
+  bottom: 30px;
+  left: 50px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-light);
+  z-index: 999;
+  letter-spacing: 0.05em;
+}
+
+/* Nav controls */
+.nav-controls {
+  position: fixed;
+  bottom: 24px;
+  right: 50px;
+  display: flex;
+  gap: 10px;
+  z-index: 999;
+}
+
+.nav-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: background 0.2s, color 0.2s;
+  user-select: none;
+}
+
+.nav-btn:hover {
+  background: var(--primary);
+  color: var(--bg);
+}
+
+.nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+  background: var(--bg);
+  color: var(--text-light);
+}
+
+/* Keyboard hint */
+.keyboard-hint {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-light);
+  z-index: 998;
+  opacity: 0.5;
+  transition: opacity 0.5s;
+  pointer-events: none;
+}
+
+/* ===========================================
+   REVEAL ANIMATIONS
+   =========================================== */
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s var(--ease-out-expo), transform 0.6s var(--ease-out-expo); }
+.slide.active .reveal, .slide.visible .reveal { opacity: 1; transform: translateY(0); }
+.r01 { transition-delay: 0.05s; } .r02 { transition-delay: 0.10s; } .r03 { transition-delay: 0.15s; }
+.r04 { transition-delay: 0.20s; } .r05 { transition-delay: 0.25s; } .r06 { transition-delay: 0.30s; }
+.r07 { transition-delay: 0.35s; } .r08 { transition-delay: 0.40s; } .r09 { transition-delay: 0.45s; }
+.r10 { transition-delay: 0.50s; } .r11 { transition-delay: 0.55s; } .r12 { transition-delay: 0.60s; }
+
+/* ===========================================
+   COVER SLIDE
+   =========================================== */
+.cover-bg {
+  position: absolute; inset: 0;
+  background: var(--bg); z-index: 0;
+}
+
+.cover-decoration {
+  position: absolute;
+  top: 0; right: 0;
+  width: 35%; height: 100%;
+  background: var(--accent-light);
+  clip-path: polygon(30% 0, 100% 0, 100% 100%, 0% 100%);
+  z-index: 1;
+}
+
+.cover-dots {
+  position: absolute;
+  top: 80px; right: 80px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  z-index: 2;
+  opacity: 0.25;
+}
+
+.cover-dots span {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.cover-content {
+  position: absolute;
+  left: 100px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  max-width: 1100px;
+}
+
+.cover-badge {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+}
+
+.cover-accent-line {
+  width: 60px; height: 4px;
+  background: var(--primary);
+  border-radius: 2px;
+  margin-bottom: 28px;
+}
+
+.cover-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 68px;
+  line-height: 1.15;
+  color: var(--text);
+  margin: 0 0 12px 0;
+  letter-spacing: 0;
+}
+
+.cover-title span { color: var(--primary); }
+
+.cover-subtitle {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0 0 40px 0;
+}
+
+.cover-meta {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--text-light);
+  letter-spacing: 0.05em;
+}
+
+.cover-meta .sep {
+  display: inline-block;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--primary);
+  vertical-align: middle;
+  margin: 0 16px;
+}
+
+/* ===========================================
+   CONTENT SLIDE LAYOUT
+   =========================================== */
+.content-slide {
+  padding: 80px 80px 140px 80px;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-header {
+  margin-bottom: 36px;
+}
+
+.content-header .section-h2 {
+  margin-top: 8px;
+}
+
+/* Grid layouts */
+.grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  flex: 1;
+}
+
+.grid-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+  flex: 1;
+}
+
+.grid-4col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 20px;
+  flex: 1;
+}
+
+.grid-2x2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 24px;
+  flex: 1;
+}
+
+.grid-3x2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 20px;
+  flex: 1;
+}
+
+.grid-2x3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  gap: 20px;
+  flex: 1;
+}
+
+/* Flow layout */
+.flow-row {
+  display: flex;
+  gap: 24px;
+  flex: 1;
+  align-items: center;
+}
+
+.flow-row > * { flex: 1; }
+
+/* Card inner elements */
+.card h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.3;
+  color: var(--text);
+  margin: 0 0 10px 0;
+  letter-spacing: 0;
+}
+
+.card p {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.card ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0 0;
+}
+
+.card ul li {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  padding-left: 16px;
+  position: relative;
+}
+
+.card ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.5;
+}
+
+.card ul li strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Stat row */
+.stat-row {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.stat-cell {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-cell .stat-num { margin-bottom: 4px; }
+
+/* Metric row */
+.metric-row {
+  display: flex;
+  gap: 20px;
+}
+
+.metric-card {
+  flex: 1;
+  background: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 24px 26px;
+}
+
+.metric-card .metric-value { margin-bottom: 4px; }
+.metric-card .metric-label { margin-bottom: 4px; }
+
+/* Step timeline */
+.step-timeline {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.step-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.step-item .step-circle { margin-bottom: 4px; }
+
+.step-label {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.step-desc {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* Arrow between steps */
+.step-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--primary);
+  opacity: 0.4;
+  flex-shrink: 0;
+  width: 30px;
+  padding-top: 30px;
+}
+
+/* Split layout */
+.split-layout {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 48px;
+  flex: 1;
+}
+
+/* Tag row */
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tag-item {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--primary);
+  padding: 5px 14px;
+  background: var(--accent-light);
+  border-radius: 100px;
+}
+
+/* Detail grid inside cards */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  margin-top: 8px;
+}
+
+.dt {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.dd {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* List with inset numbers */
+.insight-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.insight-list li {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  padding-left: 40px;
+  position: relative;
+  margin-bottom: 12px;
+  counter-increment: insight-counter;
+}
+
+.insight-list li::before {
+  content: counter(insight-counter, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--primary);
+}
+
+.insight-list { counter-reset: insight-counter; }
+
+/* Architecture flow row */
+.arch-flow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.arch-layer {
+  flex: 1;
+  text-align: center;
+  padding: 10px 8px;
+  background: var(--accent-light);
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--primary);
+}
+
+.arch-arrow {
+  flex-shrink: 0;
+  color: var(--text-light);
+  font-size: 18px;
+}
+
+/* ===========================================
+   CLOSING SLIDE
+   =========================================== */
+.closing-circles {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+}
+
+.closing-circles .outer {
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.35;
+}
+
+.closing-circles .inner {
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.25;
+}
+
+.closing-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  text-align: center;
+}
+
+.closing-content .cover-accent-line {
+  margin: 0 auto 24px;
+}
+
+.closing-content .cover-title {
+  font-size: 52px;
+}
+</style>
+</head>
+<body>
+<div class="deck-viewport">
+<main class="deck-stage" id="deckStage">
+
+<!-- ===========================================
+     SLIDE 1: COVER
+     =========================================== -->
+<section class="slide active" data-slide="1">
+  <div class="cover-bg"></div>
+  <div class="cover-decoration"></div>
+  <div class="cover-dots">
+    <span></span><span></span><span></span>
+    <span></span><span></span><span></span>
+    <span></span><span></span><span></span>
+  </div>
+  <div class="cover-content">
+    <div class="cover-badge reveal r01">Enterprise · AI Agent Platform</div>
+    <div class="cover-accent-line reveal r02"></div>
+    <h1 class="cover-title reveal r03">API <span>Agent</span></h1>
+    <p class="cover-subtitle reveal r04">从自然语言到生产级 API 的智能化管道</p>
+    <div class="cover-meta reveal r05">
+      内部方案汇报 <span class="sep"></span> 产品功能全景 <span class="sep"></span> 业务流程 <span class="sep"></span> 价值主张
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 2: AGENDA
+     =========================================== -->
+<section class="slide" data-slide="2">
+  <div style="padding:80px 100px 140px 100px;display:flex;flex-direction:column;height:100%;">
+    <div class="reveal r01" style="margin-bottom:12px;">
+      <div class="eyebrow" style="margin-bottom:4px;">CONTENTS</div>
+      <div class="accent-line"></div>
+    </div>
+    <h2 class="section-h2 reveal r02" style="margin-bottom:36px;">汇报目录</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr 1fr;gap:20px;flex:1;align-content:start;">
+      <div class="card reveal r03" style="display:flex;gap:20px;align-items:center;padding:24px 28px;">
+        <div class="step-circle" style="flex-shrink:0;">01</div>
+        <div><div style="font-family:var(--font-display);font-weight:600;font-size:18px;color:var(--text);">项目背景与定位</div><div style="font-family:var(--font-body);font-size:14px;color:var(--text-muted);margin-top:4px;">核心问题、市场机遇与产品定位</div></div>
+      </div>
+      <div class="card reveal r04" style="display:flex;gap:20px;align-items:center;padding:24px 28px;">
+        <div class="step-circle">02</div>
+        <div><div style="font-family:var(--font-display);font-weight:600;font-size:18px;color:var(--text);">产品全景与架构</div><div style="font-family:var(--font-body);font-size:14px;color:var(--text-muted);margin-top:4px;">功能全景、技术架构与核心工作流</div></div>
+      </div>
+      <div class="card reveal r05" style="display:flex;gap:20px;align-items:center;padding:24px 28px;">
+        <div class="step-circle">03</div>
+        <div><div style="font-family:var(--font-display);font-weight:600;font-size:18px;color:var(--text);">核心业务流程</div><div style="font-family:var(--font-body);font-size:14px;color:var(--text-muted);margin-top:4px;">NL→SQL→合约→合规→部署全链路</div></div>
+      </div>
+      <div class="card reveal r06" style="display:flex;gap:20px;align-items:center;padding:24px 28px;">
+        <div class="step-circle">04</div>
+        <div><div style="font-family:var(--font-display);font-weight:600;font-size:18px;color:var(--text);">关键能力详解</div><div style="font-family:var(--font-body);font-size:14px;color:var(--text-muted);margin-top:4px;">安全、治理、记忆、集成等核心能力</div></div>
+      </div>
+      <div class="card reveal r07" style="display:flex;gap:20px;align-items:center;padding:24px 28px;">
+        <div class="step-circle">05</div>
+        <div><div style="font-family:var(--font-display);font-weight:600;font-size:18px;color:var(--text);">基础设施与平台</div><div style="font-family:var(--font-body);font-size:14px;color:var(--text-muted);margin-top:4px;">MCP、工具注册、多数据库、部署</div></div>
+      </div>
+      <div class="card reveal r08" style="display:flex;gap:20px;align-items:center;padding:24px 28px;">
+        <div class="step-circle">06</div>
+        <div><div style="font-family:var(--font-display);font-weight:600;font-size:18px;color:var(--text);">价值主张与总结</div><div style="font-family:var(--font-body);font-size:14px;color:var(--text-muted);margin-top:4px;">核心价值、差异化优势与路线图</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 3: 背景与定位
+     =========================================== -->
+<section class="slide" data-slide="3">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">BACKGROUND</div>
+        <div class="tag-pill">项目背景</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">项目背景与产品定位</h2>
+    </div>
+    <div class="grid-2col" style="flex:1;">
+      <div class="card reveal r03">
+        <h3>核心问题</h3>
+        <ul>
+          <li><strong>效率瓶颈</strong> — 从业务需求到 API 上线平均需 3-5 天，沟通成本高</li>
+          <li><strong>安全风险</strong> — 手动编写 SQL 存在注入、数据泄露等安全隐患</li>
+          <li><strong>合规压力</strong> — 金融级数据治理要求（PBOC/CBIRC）难以自动落地</li>
+          <li><strong>知识孤岛</strong> — 数据库 Schema 分散、数据血缘不透明、治理困难</li>
+        </ul>
+      </div>
+      <div class="card reveal r05">
+        <h3>产品定位</h3>
+        <ul>
+          <li><strong>AI Native</strong> — 基于 LangGraph 的 18 节点 Agentic 工作流引擎</li>
+          <li><strong>安全优先</strong> — 内置 SQL 验证、风险分级、六层合约门禁、合规引擎</li>
+          <li><strong>全链路闭环</strong> — 从自然语言到生产级 API 的一站式智能管道</li>
+          <li><strong>企业级</strong> — 多数据源、RBAC/ABAC、审计追踪、数据血缘治理</li>
+        </ul>
+      </div>
+      <div class="card reveal r04">
+        <h3>市场机遇</h3>
+        <ul>
+          <li><strong>数据民主化</strong> — 业务人员可直接通过自然语言获取数据</li>
+          <li><strong>API 经济</strong> — 低代码平台与 API 市场对快速 API 生成需求激增</li>
+          <li><strong>合规科技</strong> — 金融监管趋严，自动化合规检查成为刚需</li>
+          <li><strong>AI Agent</strong> — 大模型能力成熟使 NL→SQL 达到实用水平</li>
+        </ul>
+      </div>
+      <div class="card reveal r06">
+        <h3>目标用户</h3>
+        <ul>
+          <li><strong>数据分析师</strong> — 快速获取数据洞察，无需等待开发排期</li>
+          <li><strong>后端开发者</strong> — 通过自然语言生成 API 代码原型</li>
+          <li><strong>数据治理团队</strong> — 自动化血缘追踪与合规检查</li>
+          <li><strong>低代码平台</strong> — 集成智能 API 构建能力</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 4: 产品全景图
+     =========================================== -->
+<section class="slide" data-slide="4">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">PRODUCT OVERVIEW</div>
+        <div class="tag-pill">产品全景</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">产品功能全景图</h2>
+    </div>
+    <div class="grid-3col" style="flex:1;">
+      <div class="card reveal r02">
+        <h3>智能管道</h3>
+        <ul>
+          <li>自然语言意图解析</li>
+          <li>数据库 Schema 自动发现</li>
+          <li>NL 到 SQL 智能生成</li>
+          <li>SQL 语法与安全验证</li>
+          <li>SQL 自动纠错与优化</li>
+          <li>结果模拟与预览</li>
+        </ul>
+      </div>
+      <div class="card reveal r03">
+        <h3>安全与合规</h3>
+        <ul>
+          <li>SQL 注入 / DDL 拦截</li>
+          <li>L1-L4 风险分级</li>
+          <li>敏感字段检测与脱敏</li>
+          <li>6 层合约工程门禁</li>
+          <li>策略引擎（DENY/WARN/ALLOW）</li>
+          <li>PBOC/CBIRC 合规检查</li>
+        </ul>
+      </div>
+      <div class="card reveal r04">
+        <h3>治理与血缘</h3>
+        <ul>
+          <li>列级数据血缘追踪</li>
+          <li>上下游影响分析</li>
+          <li>指标定义版本管理</li>
+          <li>Schema 变更检测</li>
+          <li>资产信任报告</li>
+          <li>语义搜索</li>
+        </ul>
+      </div>
+      <div class="card reveal r05">
+        <h3>认证与权限</h3>
+        <ul>
+          <li>JWT 令牌认证</li>
+          <li>RBAC 角色权限（4 级）</li>
+          <li>ABAC 属性权限</li>
+          <li>SQL 字段级权限</li>
+          <li>数据脱敏策略</li>
+          <li>审批工作流</li>
+        </ul>
+      </div>
+      <div class="card reveal r06">
+        <h3>平台集成</h3>
+        <ul>
+          <li>MCP 服务（SSE + 10 工具）</li>
+          <li>工具注册中心</li>
+          <li>Webhook 事件推送</li>
+          <li>外部 API 适配器</li>
+          <li>分步式平台构建 API</li>
+          <li>部署制品生成</li>
+        </ul>
+      </div>
+      <div class="card reveal r07">
+        <h3>记忆与知识</h3>
+        <ul>
+          <li>5 层会话记忆</li>
+          <li>RAG 检索增强</li>
+          <li>4 层准入管线</li>
+          <li>会话续接恢复</li>
+          <li>排序记忆检索</li>
+          <li>事件转录存储</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 5: 技术架构总览
+     =========================================== -->
+<section class="slide" data-slide="5">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">ARCHITECTURE</div>
+        <div class="tag-pill">技术架构</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">六层架构总览</h2>
+    </div>
+    <div class="split-layout" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:10px;justify-content:center;">
+        <div class="arch-flow reveal r02"><div class="arch-layer">接口层</div><span class="arch-arrow">→</span><span style="font-size:13px;color:var(--text-muted);">FastAPI 路由 / MCP SSE</span></div>
+        <div class="arch-flow reveal r03"><div class="arch-layer">应用层</div><span class="arch-arrow">→</span><span style="font-size:13px;color:var(--text-muted);">用例编排 / 服务编排</span></div>
+        <div class="arch-flow reveal r04"><div class="arch-layer">工作流层</div><span class="arch-arrow">→</span><span style="font-size:13px;color:var(--text-muted);">LangGraph 18 节点 / 7 子图</span></div>
+        <div class="arch-flow reveal r05"><div class="arch-layer">领域层</div><span class="arch-arrow">→</span><span style="font-size:13px;color:var(--text-muted);">模型 / 服务 / 策略 / 端口</span></div>
+        <div class="arch-flow reveal r06"><div class="arch-layer">基础设施层</div><span class="arch-arrow">→</span><span style="font-size:13px;color:var(--text-muted);">DB / LLM / 认证 / 事件 / MCP</span></div>
+        <div class="arch-flow reveal r07"><div class="arch-layer">数据存储</div><span class="arch-arrow">→</span><span style="font-size:13px;color:var(--text-muted);">SQLite / PostgreSQL / Redis / Qdrant</span></div>
+      </div>
+      <div class="card-sm reveal r04" style="display:flex;flex-direction:column;justify-content:center;">
+        <h3>架构原则</h3>
+        <ul>
+          <li><strong>六边形架构</strong> — 领域层零外部依赖，端口适配器模式</li>
+          <li><strong>依赖注入</strong> — 自动装配单例，模块解耦</li>
+          <li><strong>事件驱动</strong> — 异步事件总线，解耦核心流程与审计</li>
+          <li><strong>可替换 LLM</strong> — 模型客户端端口化，支持多模型切换</li>
+          <li><strong>幂等设计</strong> — 关键路径支持重试与状态恢复</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 6: 核心工作流
+     =========================================== -->
+<section class="slide" data-slide="6">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">CORE WORKFLOW</div>
+        <div class="tag-pill">核心工作流</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">从自然语言到生产级 API — 18 节点端到端流程</h2>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:10px;justify-content:center;">
+      <div class="card-sm reveal r02" style="display:flex;align-items:center;gap:10px;padding:14px 20px;">
+        <div class="step-circle" style="width:36px;height:36px;font-size:14px;">1</div>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">意图解析</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">认证检查</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">Schema 发现</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">表选择</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">参数推理</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">NL2SQL</span>
+      </div>
+      <div class="card-sm reveal r03" style="display:flex;align-items:center;gap:10px;padding:14px 20px;">
+        <div class="step-circle" style="width:36px;height:36px;font-size:14px;background:var(--text-light);">2</div>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">SQL 验证</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">风险分级</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">人工审核</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">SQL 优化</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">结果模拟</span>
+      </div>
+      <div class="card-sm reveal r04" style="display:flex;align-items:center;gap:10px;padding:14px 20px;">
+        <div class="step-circle" style="width:36px;height:36px;font-size:14px;background:var(--text-light);">3</div>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">合约生成</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">6 层门禁</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">合规检查</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">审批</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">代码生成</span>
+        <span style="color:var(--text-light);font-size:13px;">→</span>
+        <span style="flex:1;font-family:var(--font-display);font-weight:500;font-size:15px;color:var(--text);">部署准备</span>
+      </div>
+      <div class="highlight-block reveal r05" style="display:flex;gap:24px;align-items:center;">
+        <div style="font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--primary);white-space:nowrap;">子图分解</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <span class="tag-item">data_query</span>
+          <span class="tag-item">review</span>
+          <span class="tag-item">contract</span>
+          <span class="tag-item">compliance</span>
+          <span class="tag-item">deployment</span>
+          <span class="tag-item">loop（纠错）</span>
+          <span class="tag-item">terminal（审计）</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 7: 数据查询子图
+     =========================================== -->
+<section class="slide" data-slide="7">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">DATA QUERY</div>
+        <div class="tag-pill">数据查询子图</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">NL → SQL 核心管线</h2>
+    </div>
+    <div class="split-layout" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:16px;justify-content:center;">
+        <div class="card-sm reveal r02" style="display:flex;gap:16px;align-items:flex-start;padding:16px 20px;">
+          <div class="step-circle" style="width:32px;height:32px;font-size:13px;flex-shrink:0;">I</div>
+          <div><div style="font-weight:600;color:var(--text);font-size:15px;">意图解析 + 认证</div><div style="font-size:13px;color:var(--text-muted);margin-top:2px;">解析用户查询意图，验证身份与权限</div></div>
+        </div>
+        <div class="card-sm reveal r03" style="display:flex;gap:16px;align-items:flex-start;padding:16px 20px;">
+          <div class="step-circle" style="width:32px;height:32px;font-size:13px;flex-shrink:0;">II</div>
+          <div><div style="font-weight:600;color:var(--text);font-size:15px;">Schema 发现 + 表选择</div><div style="font-size:13px;color:var(--text-muted);margin-top:2px;">自动发现数据库结构，智能推荐相关表</div></div>
+        </div>
+        <div class="card-sm reveal r04" style="display:flex;gap:16px;align-items:flex-start;padding:16px 20px;">
+          <div class="step-circle" style="width:32px;height:32px;font-size:13px;flex-shrink:0;">III</div>
+          <div><div style="font-weight:600;color:var(--text);font-size:15px;">参数推理 + NL2SQL</div><div style="font-size:13px;color:var(--text-muted);margin-top:2px;">推理请求/响应参数，LLM 驱动 SQL 生成</div></div>
+        </div>
+        <div class="card-sm reveal r05" style="display:flex;gap:16px;align-items:flex-start;padding:16px 20px;">
+          <div class="step-circle" style="width:32px;height:32px;font-size:13px;flex-shrink:0;">IV</div>
+          <div><div style="font-weight:600;color:var(--text);font-size:15px;">SQL 验证 + 风险分级</div><div style="font-size:13px;color:var(--text-muted);margin-top:2px;">8 规则安全验证 + L1-L4 风险自动分级</div></div>
+        </div>
+      </div>
+      <div class="card reveal r03" style="display:flex;flex-direction:column;justify-content:center;">
+        <h3>多方言数据库支持</h3>
+        <div class="detail-grid">
+          <span class="dt">SQLite</span><span class="dd">开发/测试</span>
+          <span class="dt">PostgreSQL</span><span class="dd">生产 OLTP</span>
+          <span class="dt">MySQL</span><span class="dd">Web 应用</span>
+          <span class="dt">Snowflake</span><span class="dd">云数仓</span>
+          <span class="dt">BigQuery</span><span class="dd">Google Cloud</span>
+          <span class="dt">ClickHouse</span><span class="dd">实时分析</span>
+        </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+          <div style="font-family:var(--font-display);font-weight:500;font-size:13px;color:var(--text);">连接注册中心</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">多维度查找（标签、隐私级别、租户）+ 自动扩缩容连接池</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 8: SQL 安全验证体系
+     =========================================== -->
+<section class="slide" data-slide="8">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">SQL SECURITY</div>
+        <div class="tag-pill">安全验证</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">SQL 安全验证体系</h2>
+    </div>
+    <div class="grid-2col" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="card reveal r02">
+          <h3>8 大安全验证规则</h3>
+          <div class="tag-row" style="margin-top:8px;">
+            <span class="tag-item" style="background:rgba(220,38,38,0.08);color:var(--negative);">拦截 DROP</span>
+            <span class="tag-item" style="background:rgba(220,38,38,0.08);color:var(--negative);">拦截 DELETE</span>
+            <span class="tag-item" style="background:rgba(220,38,38,0.08);color:var(--negative);">拦截 TRUNCATE</span>
+            <span class="tag-item" style="background:rgba(220,38,38,0.08);color:var(--negative);">拦截 ALTER</span>
+            <span class="tag-item" style="background:rgba(220,38,38,0.08);color:var(--negative);">拦截 SELECT *</span>
+            <span class="tag-item" style="background:rgba(220,38,38,0.08);color:var(--negative);">拦截多语句</span>
+            <span class="tag-item">强制 SELECT 只读</span>
+            <span class="tag-item">强制 LIMIT</span>
+          </div>
+        </div>
+        <div class="card reveal r04">
+          <h3>敏感字段检测</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
+            <span class="tag-item">手机号</span>
+            <span class="tag-item">邮箱</span>
+            <span class="tag-item">身份证</span>
+            <span class="tag-item">银行卡</span>
+            <span class="tag-item">密码</span>
+            <span class="tag-item">SSN</span>
+          </div>
+          <div style="margin-top:16px;">
+            <div style="font-family:var(--font-display);font-weight:500;font-size:13px;color:var(--text);">数据脱敏策略</div>
+            <div class="tag-row" style="margin-top:6px;">
+              <span class="tag-item">FULL 完全脱敏</span>
+              <span class="tag-item">PARTIAL 部分保留</span>
+              <span class="tag-item">NULL 置空</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="card reveal r03">
+          <h3>策略引擎</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:8px;">
+            <div style="background:rgba(5,150,105,0.08);border-radius:10px;padding:14px;text-align:center;">
+              <div style="font-family:var(--font-display);font-weight:700;font-size:20px;color:var(--positive);">ALLOW</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">允许执行</div>
+            </div>
+            <div style="background:rgba(234,179,8,0.08);border-radius:10px;padding:14px;text-align:center;">
+              <div style="font-family:var(--font-display);font-weight:700;font-size:20px;color:#ca8a04;">WARN</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">警告后放行</div>
+            </div>
+            <div style="background:rgba(220,38,38,0.08);border-radius:10px;padding:14px;text-align:center;">
+              <div style="font-family:var(--font-display);font-weight:700;font-size:20px;color:var(--negative);">DENY</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">直接拦截</div>
+            </div>
+          </div>
+        </div>
+        <div class="card highlight-block reveal r05" style="border-left:4px solid var(--primary);">
+          <h3>自纠错循环</h3>
+          <p>SQL / 合约 / 合规失败时自动触发纠错子图，智能 LLM 重试，最多 3 轮迭代。LLM 不可用时优雅降级。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 9: 风险分级机制
+     =========================================== -->
+<section class="slide" data-slide="9">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">RISK CLASSIFICATION</div>
+        <div class="tag-pill">风险分级</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">L1–L4 风险分级与审批策略</h2>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:16px;justify-content:center;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;">
+        <div class="card reveal r02" style="border-left:4px solid #059669;">
+          <div class="stat-num" style="color:#059669;">L1</div>
+          <div style="font-weight:600;color:var(--text);font-size:16px;margin:4px 0;">低风险</div>
+          <div style="font-size:13px;color:var(--text-muted);">单表查询，无敏感字段</div>
+          <div class="tag-row" style="margin-top:8px;">
+            <span class="tag-item" style="background:rgba(5,150,105,0.08);color:#059669;">自动审批</span>
+          </div>
+        </div>
+        <div class="card reveal r03" style="border-left:4px solid #0891b2;">
+          <div class="stat-num" style="color:#0891b2;">L2</div>
+          <div style="font-weight:600;color:var(--text);font-size:16px;margin:4px 0;">中风险</div>
+          <div style="font-size:13px;color:var(--text-muted);">多表 JOIN，无敏感字段</div>
+          <div class="tag-row" style="margin-top:8px;">
+            <span class="tag-item" style="background:rgba(8,145,178,0.08);color:#0891b2;">单人审批</span>
+          </div>
+        </div>
+        <div class="card reveal r04" style="border-left:4px solid #ca8a04;">
+          <div class="stat-num" style="color:#ca8a04;">L3</div>
+          <div style="font-weight:600;color:var(--text);font-size:16px;margin:4px 0;">高风险</div>
+          <div style="font-size:13px;color:var(--text-muted);">含敏感字段或大数据量</div>
+          <div class="tag-row" style="margin-top:8px;">
+            <span class="tag-item" style="background:rgba(234,179,8,0.08);color:#ca8a04;">数据所有者审批</span>
+          </div>
+        </div>
+        <div class="card reveal r05" style="border-left:4px solid #dc2626;">
+          <div class="stat-num" style="color:var(--negative);">L4</div>
+          <div style="font-weight:600;color:var(--text);font-size:16px;margin:4px 0;">严重风险</div>
+          <div style="font-size:13px;color:var(--text-muted);">全表扫描或批量导出</div>
+          <div class="tag-row" style="margin-top:8px;">
+            <span class="tag-item" style="background:rgba(220,38,38,0.08);color:var(--negative);">双人审批</span>
+          </div>
+        </div>
+      </div>
+      <div class="highlight-block reveal r06" style="padding:16px 24px;">
+        <div style="display:flex;gap:24px;align-items:center;">
+          <span style="font-weight:600;color:var(--text);font-size:15px;white-space:nowrap;">分级依据</span>
+          <span style="font-size:14px;color:var(--text-muted);">涉及表数量 · 是否包含敏感字段 · 预估扫描行数 · 是否全表扫描 · 是否含批量导出操作</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 10: 人工审核与优化
+     =========================================== -->
+<section class="slide" data-slide="10">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">REVIEW & OPTIMIZE</div>
+        <div class="tag-pill">审核优化</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">人工审核与 SQL 优化</h2>
+    </div>
+    <div class="split-layout" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:16px;justify-content:center;">
+        <div class="card reveal r02">
+          <h3>人工审核节点</h3>
+          <ul>
+            <li><strong>SQL 预览</strong> — 展示生成的 SQL 及对应的自然语言描述</li>
+            <li><strong>风险提示</strong> — 标注风险等级、涉及敏感字段、预估数据量</li>
+            <li><strong>人工确认</strong> — 审批/驳回/修改 SQL，记录审批人信息</li>
+            <li><strong>结果确认</strong> — 执行前展示模拟结果，人工确认后放行</li>
+          </ul>
+        </div>
+        <div class="card reveal r04">
+          <h3>审计追踪</h3>
+          <ul>
+            <li>完整审计日志 — 每次查询/API 生成均记录</li>
+            <li>异步写入 SQLite + stdout，不阻塞主流程</li>
+            <li>审批操作全留痕，满足金融审计要求</li>
+            <li>工作流状态可追溯、可回放</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;justify-content:center;">
+        <div class="card reveal r03">
+          <h3>SQL 优化策略</h3>
+          <ul>
+            <li><strong>行数限制</strong> — 自动追加 LIMIT，防止大数据量查询</li>
+            <li><strong>超时保护</strong> — 查询超时配置，避免长时间占用连接</li>
+            <li><strong>结果模拟</strong> — 采样查询预览，确认结果符合预期</li>
+            <li><strong>索引推荐</strong> — LLM 辅助优化查询计划</li>
+          </ul>
+        </div>
+        <div class="card highlight-block reveal r05">
+          <h3>审核子图流程</h3>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+            <span class="tag-item">SQL 预览</span>
+            <span style="color:var(--text-light);">→</span>
+            <span class="tag-item">风险标注</span>
+            <span style="color:var(--text-light);">→</span>
+            <span class="tag-item">人工确认</span>
+            <span style="color:var(--text-light);">→</span>
+            <span class="tag-item">SQL 优化</span>
+            <span style="color:var(--text-light);">→</span>
+            <span class="tag-item">结果模拟</span>
+            <span style="color:var(--text-light);">→</span>
+            <span class="tag-item">二次确认</span>
+            <span style="color:var(--text-light);">→</span>
+            <span class="tag-item">合约生成</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 11: API 合约生成
+     =========================================== -->
+<section class="slide" data-slide="11">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">API CONTRACT</div>
+        <div class="tag-pill">合约生成</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">API 合约与快速代码生成</h2>
+    </div>
+    <div class="split-layout" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:16px;justify-content:center;">
+        <div class="card reveal r02">
+          <h3>合约生成</h3>
+          <ul>
+            <li><strong>路径与方法</strong> — RESTful 路由与 HTTP 方法推导</li>
+            <li><strong>请求参数</strong> — 路径参数、查询参数、请求体 Schema 生成</li>
+            <li><strong>响应模型</strong> — 返回数据结构与类型定义</li>
+            <li><strong>错误处理</strong> — 标准错误响应格式（400/403/404/500）</li>
+          </ul>
+        </div>
+        <div class="card reveal r04">
+          <h3>部署制品</h3>
+          <ul>
+            <li>OpenAPI 3.0 规范文档</li>
+            <li>Agent Tool Card（供 AI Agent 调用）</li>
+            <li>PR 计划与版本元数据</li>
+            <li>FastAPI 代码文件（可直接使用）</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;justify-content:center;">
+        <div class="card reveal r03">
+          <h3>FastAPI 代码生成</h3>
+          <ul>
+            <li>自动生成完整的 FastAPI 路由代码</li>
+            <li>Pydantic 请求/响应模型定义</li>
+            <li>SQLAlchemy 查询逻辑嵌入</li>
+            <li>错误处理与依赖注入整合</li>
+            <li>类型注解完整，可直接导入项目</li>
+          </ul>
+        </div>
+        <div class="card highlight-block reveal r05" style="padding:16px 24px;">
+          <div style="font-weight:600;color:var(--text);font-size:15px;">一分钟从自然语言到生产级 API</div>
+          <div style="font-size:14px;color:var(--text-muted);margin-top:4px;">NL 输入 → 全自动管线 → 可直接部署的 API 代码 + OpenAPI 规范</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 12: 六层工程门禁
+     =========================================== -->
+<section class="slide" data-slide="12">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">CONTRACT GATE</div>
+        <div class="tag-pill">合约门禁</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">六层合约工程门禁</h2>
+    </div>
+    <div class="grid-3col" style="flex:1;">
+      <div class="card reveal r02" style="border-left:4px solid var(--primary);">
+        <div class="stat-num" style="margin-bottom:8px;">Schema</div>
+        <p>校验 API 合约与数据库 Schema 的一致性 — 字段名、类型、是否可空、默认值是否匹配数据库定义</p>
+      </div>
+      <div class="card reveal r03" style="border-left:4px solid var(--primary);">
+        <div class="stat-num" style="margin-bottom:8px;">Shape</div>
+        <p>校验请求/响应结构的完整性 — 参数是否齐全、嵌套结构是否合理、数组类型是否正确</p>
+      </div>
+      <div class="card reveal r04" style="border-left:4px solid var(--primary);">
+        <div class="stat-num" style="margin-bottom:8px;">Semantics</div>
+        <p>校验语义逻辑 — 字段含义是否准确、参数约束是否合理、是否与查询意图一致</p>
+      </div>
+      <div class="card reveal r05" style="border-left:4px solid var(--primary);">
+        <div class="stat-num" style="margin-bottom:8px;">Evidence</div>
+        <p>校验数据证据 — 是否有实际数据支持该合约、样例数据是否符合预期、边界情况处理</p>
+      </div>
+      <div class="card reveal r06" style="border-left:4px solid var(--primary);">
+        <div class="stat-num" style="margin-bottom:8px;">Policy</div>
+        <p>校验策略合规 — 是否满足数据访问策略、敏感字段是否标记脱敏、权限是否匹配</p>
+      </div>
+      <div class="card reveal r07" style="border-left:4px solid var(--primary);">
+        <div class="stat-num" style="margin-bottom:8px;">Quality</div>
+        <p>校验整体质量 — 合约完整性评分、可读性评估、最佳实践检查、安全红线扫描</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 13: 合规与审批
+     =========================================== -->
+<section class="slide" data-slide="13">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">COMPLIANCE</div>
+        <div class="tag-pill">合规审批</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">合规检查与审批工作流</h2>
+    </div>
+    <div class="split-layout" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:18px;justify-content:center;">
+        <div class="card reveal r02">
+          <h3>合规检查</h3>
+          <ul>
+            <li><strong>监管规则</strong> — PBOC（人民银行）、CBIRC（银保监会）合规检查</li>
+            <li><strong>治理规则</strong> — 数据资产注册、指标定义一致性、血缘完整性</li>
+            <li><strong>策略引擎</strong> — DENY/WARN/ALLOW 三级判定</li>
+            <li><strong>全量导出</strong> — 合规检查报告可导出审计</li>
+          </ul>
+        </div>
+        <div class="card reveal r04">
+          <h3>审计日志</h3>
+          <ul>
+            <li>全链路审计 — 从意图解析到部署的每一节点均记录</li>
+            <li>不可篡改 — 事件流式追加存储</li>
+            <li>合规报告 — 自动生成以满足审计要求</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px;justify-content:center;">
+        <div class="card reveal r03">
+          <h3>审批工作流</h3>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+            <div style="display:flex;gap:12px;align-items:center;padding:10px 14px;background:var(--accent-light);border-radius:8px;">
+              <div class="step-circle" style="width:28px;height:28px;font-size:12px;">C</div>
+              <span style="font-size:13px;color:var(--text);">合规检查节点</span>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;padding:10px 14px;background:rgba(234,179,8,0.06);border-radius:8px;">
+              <div class="step-circle" style="width:28px;height:28px;font-size:12px;background:#ca8a04;">G</div>
+              <span style="font-size:13px;color:var(--text);">治理检查节点</span>
+            </div>
+            <div style="display:flex;gap:12px;align-items:center;padding:10px 14px;background:rgba(30,43,250,0.06);border-radius:8px;">
+              <div class="step-circle" style="width:28px;height:28px;font-size:12px;">A</div>
+              <span style="font-size:13px;color:var(--text);">审批路由（L1 自动 / L2 单签 / L3 数据所有者 / L4 双签）</span>
+            </div>
+          </div>
+        </div>
+        <div class="highlight-block reveal r05">
+          <div style="font-weight:600;color:var(--text);font-size:15px;">合规纠错循环</div>
+          <div style="font-size:14px;color:var(--text-muted);margin-top:2px;">合规检查失败 → 自动触发纠错子图 → LLM 修正 → 重新验证（最多 3 轮）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 14: 认证与权限体系
+     =========================================== -->
+<section class="slide" data-slide="14">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">AUTH & PERMISSIONS</div>
+        <div class="tag-pill">认证权限</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">认证与权限体系</h2>
+    </div>
+    <div class="grid-2col" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:18px;">
+        <div class="card reveal r02">
+          <h3>认证机制</h3>
+          <ul>
+            <li><strong>JWT 令牌</strong> — HS256 签名，安全令牌认证</li>
+            <li><strong>登录接口</strong> — 用户名/密码认证，返回 Access Token</li>
+            <li><strong>令牌验证</strong> — 中间件自动验证，支持过期检查</li>
+            <li><strong>可扩展</strong> — OAuth Provider 接口，支持企业 SSO</li>
+          </ul>
+        </div>
+        <div class="card reveal r04">
+          <h3>RBAC 角色矩阵</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">
+            <span class="tag-item">VIEWER 只读查看</span>
+            <span class="tag-item">ANALYST 数据查询</span>
+            <span class="tag-item">ENGINEER API 管理</span>
+            <span class="tag-item">ADMIN 系统管理</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px;">
+        <div class="card reveal r03">
+          <h3>ABAC 属性权限</h3>
+          <ul>
+            <li><strong>基于属性</strong> — 按用户属性、资源属性、环境条件动态判定</li>
+            <li><strong>字段级控制</strong> — 细粒度到表/字段的 SQL 访问控制</li>
+            <li><strong>租户隔离</strong> — 多租户数据隔离支持</li>
+            <li><strong>敏感字段拦截</strong> — 自动检测并阻断越权访问敏感字段</li>
+          </ul>
+        </div>
+        <div class="card reveal r05">
+          <h3>安全中间件</h3>
+          <ul>
+            <li>速率限制（内存 / Redis 后端）</li>
+            <li>安全响应头</li>
+            <li>生产环境安全校验（弱配置即报错）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 15: 数据血缘与治理
+     =========================================== -->
+<section class="slide" data-slide="15">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">DATA LINEAGE</div>
+        <div class="tag-pill">数据血缘</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">数据血缘与治理</h2>
+    </div>
+    <div class="grid-2col" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div class="card reveal r02">
+          <h3>血缘追踪</h3>
+          <ul>
+            <li><strong>列级解析</strong> — SQL 解析提取字段级数据来源与转换</li>
+            <li><strong>上下游分析</strong> — 字段溯源（Trace）与影响分析（Impact）</li>
+            <li><strong>血缘图遍历</strong> — 图存储结构，支持上游/下游/全路径查询</li>
+            <li><strong>循环检测</strong> — 自动检测 DAG 中的循环依赖</li>
+          </ul>
+        </div>
+        <div class="card reveal r04">
+          <h3>语义搜索</h3>
+          <ul>
+            <li>基于向量嵌入的指标定义搜索</li>
+            <li>治理规则全文检索</li>
+            <li>数据资产查找</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div class="card reveal r03">
+          <h3>治理能力</h3>
+          <ul>
+            <li><strong>指标管理</strong> — 定义注册、版本追踪、一致性比对</li>
+            <li><strong>Schema 版本</strong> — 变更检测、版本历史、影响分析</li>
+            <li><strong>合规检查</strong> — PBOC/CBIRC 规则引擎自动判定</li>
+            <li><strong>信任报告</strong> — 数据资产可信度评分</li>
+          </ul>
+        </div>
+        <div class="card highlight-block reveal r05">
+          <div style="display:flex;gap:20px;align-items:center;">
+            <div style="text-align:center;">
+              <div class="stat-num">30+</div>
+              <div class="metric-desc">治理 API</div>
+            </div>
+            <div style="text-align:center;">
+              <div class="stat-num">4</div>
+              <div class="metric-desc">维度检查</div>
+            </div>
+            <div style="text-align:center;">
+              <div class="stat-num">2</div>
+              <div class="metric-desc">监管框架</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 16: RAG 与记忆系统
+     =========================================== -->
+<section class="slide" data-slide="16">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">MEMORY & RAG</div>
+        <div class="tag-pill">记忆知识</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">记忆系统与 RAG 知识增强</h2>
+    </div>
+    <div class="split-layout" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:16px;justify-content:center;">
+        <div class="card reveal r02">
+          <h3>5 层记忆模型</h3>
+          <ul>
+            <li><strong>工作记忆</strong> — 当前会话上下文，最新交互状态</li>
+            <li><strong>情景记忆</strong> — 历史会话的关键事件片段</li>
+            <li><strong>语义记忆</strong> — 提取的概念、偏好、知识</li>
+            <li><strong>程序记忆</strong> — 操作模式与常用操作序列</li>
+            <li><strong>反思记忆</strong> — 用户明确记录的洞察与决策</li>
+          </ul>
+        </div>
+        <div class="card reveal r04">
+          <h3>会话管理</h3>
+          <ul>
+            <li>会话创建与恢复，事件转录追加存储</li>
+            <li>记忆压缩与上下文窗口管理</li>
+            <li>排序检索（相关性、时效性、重要性）</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;justify-content:center;">
+        <div class="card reveal r03">
+          <h3>RAG 管线</h3>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+            <div style="display:flex;gap:10px;align-items:center;padding:8px 12px;background:var(--accent-light);border-radius:8px;">
+              <span class="tag-item">输入检查</span>
+              <span style="color:var(--text-light);font-size:12px;">→</span>
+              <span class="tag-item">内容分类</span>
+              <span style="color:var(--text-light);font-size:12px;">→</span>
+              <span class="tag-item">安全过滤</span>
+              <span style="color:var(--text-light);font-size:12px;">→</span>
+              <span class="tag-item">去重入库</span>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <div style="font-family:var(--font-display);font-weight:500;font-size:13px;color:var(--text);">4 层准入管线</div>
+            <div style="font-size:13px;color:var(--text-muted);">输入校验 · 内容分类 · 安全检查 · 语义去重</div>
+          </div>
+        </div>
+        <div class="card highlight-block reveal r05">
+          <div style="font-weight:600;color:var(--text);font-size:15px;">记忆排序检索算法</div>
+          <div style="font-size:14px;color:var(--text-muted);margin-top:4px;">综合评分 = 相关度 × 0.30 + 时效性 × 0.25 + 重要性 × 0.25 + 成功权重 × 0.10 + 工作流相似度 × 0.10</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 17: MCP 与工具注册
+     =========================================== -->
+<section class="slide" data-slide="17">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">MCP & TOOLS</div>
+        <div class="tag-pill">服务集成</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">MCP 服务与工具注册中心</h2>
+    </div>
+    <div class="split-layout" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:16px;justify-content:center;">
+        <div class="card reveal r02">
+          <h3>MCP 服务（FastMCP + SSE）</h3>
+          <ul>
+            <li><strong>chat</strong> — 自然语言查询到完整工作流</li>
+            <li><strong>search_knowledge</strong> — 知识库语义搜索</li>
+            <li><strong>generate_api</strong> — SQL 到 API 一键生成</li>
+            <li><strong>list_connections</strong> — 数据库连接列表</li>
+            <li><strong>health_check</strong> — 服务健康检查</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;justify-content:center;">
+        <div class="card reveal r03">
+          <h3>血缘工具集</h3>
+          <ul>
+            <li><strong>lineage_trace_field</strong> — API 字段溯源</li>
+            <li><strong>lineage_impact_analysis</strong> — 表变更影响分析</li>
+            <li><strong>lineage_metric_divergence</strong> — 指标偏差检测</li>
+            <li><strong>lineage_schema_version</strong> — Schema 版本历史</li>
+            <li><strong>lineage_compliance_check</strong> — 合规状态</li>
+            <li><strong>lineage_semantic_search</strong> — 语义搜索</li>
+          </ul>
+        </div>
+        <div class="card reveal r04">
+          <h3>工具注册中心</h3>
+          <ul>
+            <li>OpenAI Function Calling 格式注册</li>
+            <li>工具元数据管理（名称、描述、参数 Schema）</li>
+            <li>运行时调用与结果返回</li>
+            <li>外部 API 适配器（REST + 重试/熔断）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 18: 平台集成
+     =========================================== -->
+<section class="slide" data-slide="18">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">PLATFORM INTEGRATION</div>
+        <div class="tag-pill">平台集成</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">低代码平台集成与事件引擎</h2>
+    </div>
+    <div class="grid-2col" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:18px;">
+        <div class="card reveal r02">
+          <h3>分步式平台构建 API</h3>
+          <ul>
+            <li>创建构建会话 → 澄清意图 → 推荐表</li>
+            <li>推理参数 → 生成 SQL → 验证 SQL</li>
+            <li>生成合约 → 推荐元数据 → 最终定稿</li>
+          </ul>
+        </div>
+        <div class="card reveal r04">
+          <h3>事件总线</h3>
+          <ul>
+            <li>内存发布/订阅模式</li>
+            <li>通配符模式匹配（topic.*）</li>
+            <li>异步消息分发</li>
+            <li>SQLite 事件存储</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px;">
+        <div class="card reveal r03">
+          <h3>平台集成方式</h3>
+          <ul>
+            <li><strong>REST API</strong> — 标准 HTTP 接口集成</li>
+            <li><strong>MCP 协议</strong> — SSE 传输，AI 原生集成</li>
+            <li><strong>Webhook</strong> — 事件注册与签名推送</li>
+            <li><strong>外部适配器</strong> — REST 客户端 + 重试/熔断</li>
+          </ul>
+        </div>
+        <div class="card highlight-block reveal r05">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;">
+            <div style="text-align:center;min-width:70px;">
+              <div class="stat-num">9</div>
+              <div class="metric-desc">构建 API</div>
+            </div>
+            <div style="text-align:center;min-width:70px;">
+              <div class="stat-num">10</div>
+              <div class="metric-desc">MCP 工具</div>
+            </div>
+            <div style="text-align:center;min-width:70px;">
+              <div class="stat-num">3</div>
+              <div class="metric-desc">集成协议</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 19: 基础设施层
+     =========================================== -->
+<section class="slide" data-slide="19">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">INFRASTRUCTURE</div>
+        <div class="tag-pill">基础设施</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">基础设施层</h2>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:16px;justify-content:center;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+        <div class="card reveal r02">
+          <h3>数据库</h3>
+          <ul>
+            <li>连接注册中心与引擎工厂</li>
+            <li>自动扩缩容连接池</li>
+            <li>租户隔离与健康监控</li>
+            <li>多方言 SQL 方言适配</li>
+          </ul>
+        </div>
+        <div class="card reveal r03">
+          <h3>LLM 管理</h3>
+          <ul>
+            <li>OpenAI 模型客户端</li>
+            <li>模型注册中心</li>
+            <li>可替换 LLM 端口</li>
+            <li>优雅降级与错误</li>
+          </ul>
+        </div>
+        <div class="card reveal r04">
+          <h3>存储后端</h3>
+          <ul>
+            <li>SQLite（开发）</li>
+            <li>PostgreSQL（生产）</li>
+            <li>Redis（缓存/速率限制）</li>
+            <li>Qdrant（向量检索）</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+        <div class="card reveal r05">
+          <h3>依赖注入</h3>
+          <p>自动装配单例容器，模块间依赖自动解析注入，降低耦合度。</p>
+        </div>
+        <div class="card reveal r06">
+          <h3>部署方案</h3>
+          <p>Docker + docker-compose + Helm Charts（GKE/ACK/Minikube），GitHub Actions CI/CD。</p>
+        </div>
+        <div class="card reveal r07">
+          <h3>配置管理</h3>
+          <p>Pydantic Settings v2，环境感知，自动解密，生产安全校验。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 20: API 端点全景
+     =========================================== -->
+<section class="slide" data-slide="20">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">API ENDPOINTS</div>
+        <div class="tag-pill">API 全景</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">API 端点全景（60+ 接口）</h2>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:10px;justify-content:center;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;">
+        <div class="card-sm reveal r02" style="padding:16px;">
+          <div class="stat-num" style="font-size:18px;margin-bottom:4px;">Agent</div>
+          <div style="font-size:12px;color:var(--text-muted);">/chat (NL→API 全流程)</div>
+          <div class="tag-row"><span class="tag-item">POST</span></div>
+        </div>
+        <div class="card-sm reveal r03" style="padding:16px;">
+          <div class="stat-num" style="font-size:18px;margin-bottom:4px;">认证</div>
+          <div style="font-size:12px;color:var(--text-muted);">/auth/login, verify, permissions</div>
+          <div class="tag-row"><span class="tag-item">POST</span></div>
+        </div>
+        <div class="card-sm reveal r04" style="padding:16px;">
+          <div class="stat-num" style="font-size:18px;margin-bottom:4px;">平台构建</div>
+          <div style="font-size:12px;color:var(--text-muted);">9 步 API 构建流水线</div>
+          <div class="tag-row"><span class="tag-item">POST</span></div>
+        </div>
+        <div class="card-sm reveal r05" style="padding:16px;">
+          <div class="stat-num" style="font-size:18px;margin-bottom:4px;">记忆</div>
+          <div style="font-size:12px;color:var(--text-muted);">8 个 Store/Retrieve 端点</div>
+          <div class="tag-row"><span class="tag-item">POST/GET</span></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;">
+        <div class="card-sm reveal r04" style="padding:16px;">
+          <div class="stat-num" style="font-size:18px;margin-bottom:4px;">治理</div>
+          <div style="font-size:12px;color:var(--text-muted);">30+ 治理与合规 API</div>
+          <div class="tag-row"><span class="tag-item">POST/GET</span></div>
+        </div>
+        <div class="card-sm reveal r05" style="padding:16px;">
+          <div class="stat-num" style="font-size:18px;margin-bottom:4px;">血缘</div>
+          <div style="font-size:12px;color:var(--text-muted);">Trace / Impact / Graph</div>
+          <div class="tag-row"><span class="tag-item">GET/POST</span></div>
+        </div>
+        <div class="card-sm reveal r06" style="padding:16px;">
+          <div class="stat-num" style="font-size:18px;margin-bottom:4px;">Webhook</div>
+          <div style="font-size:12px;color:var(--text-muted);">注册 / 列表 / 删除</div>
+          <div class="tag-row"><span class="tag-item">POST/GET/DELETE</span></div>
+        </div>
+        <div class="card-sm reveal r07" style="padding:16px;">
+          <div class="stat-num" style="font-size:18px;margin-bottom:4px;">MCP</div>
+          <div style="font-size:12px;color:var(--text-muted);">SSE 传输 / 10 工具</div>
+          <div class="tag-row"><span class="tag-item">SSE</span></div>
+        </div>
+      </div>
+      <div class="highlight-block reveal r08" style="padding:12px 20px;">
+        <div style="display:flex;gap:24px;font-size:14px;color:var(--text-muted);">
+          <span>Python 3.13</span>
+          <span>|</span>
+          <span>FastAPI + Uvicorn</span>
+          <span>|</span>
+          <span>LangGraph StateGraph</span>
+          <span>|</span>
+          <span>SQLAlchemy 2.x</span>
+          <span>|</span>
+          <span>431 测试用例</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 21: 价值主张
+     =========================================== -->
+<section class="slide" data-slide="21">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">VALUE PROPOSITION</div>
+        <div class="tag-pill">价值主张</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">核心价值与差异化优势</h2>
+    </div>
+    <div class="grid-2col" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div class="card highlight-block reveal r02" style="padding:24px 28px;">
+          <div class="stat-num" style="font-size:38px;margin-bottom:8px;">10x</div>
+          <div class="metric-label" style="font-size:20px;">效率提升</div>
+          <p style="font-size:14px;color:var(--text-muted);margin-top:4px;">从自然语言到生产级 API 从 3-5 天缩短到数分钟，全自动智能管道消除手动编写环节。</p>
+        </div>
+        <div class="card highlight-block reveal r04" style="padding:24px 28px;">
+          <div class="stat-num" style="font-size:38px;margin-bottom:8px;">零信任</div>
+          <div class="metric-label" style="font-size:20px;">安全架构</div>
+          <p style="font-size:14px;color:var(--text-muted);margin-top:4px;">8 规则 SQL 验证 + L1-L4 风险分级 + 6 层合约门禁 + 策略引擎，构建纵深防御体系。</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div class="card highlight-block reveal r03" style="padding:24px 28px;">
+          <div class="stat-num" style="font-size:38px;margin-bottom:8px;">合规就绪</div>
+          <div class="metric-label" style="font-size:20px;">金融级治理</div>
+          <p style="font-size:14px;color:var(--text-muted);margin-top:4px;">内置 PBOC/CBIRC 合规引擎、数据血缘追踪、全链路审计日志，满足金融监管要求。</p>
+        </div>
+        <div class="card highlight-block reveal r05" style="padding:24px 28px;">
+          <div class="stat-num" style="font-size:38px;margin-bottom:8px;">AI 原生</div>
+          <div class="metric-label" style="font-size:20px;">智能驱动</div>
+          <p style="font-size:14px;color:var(--text-muted);margin-top:4px;">LangGraph Agentic 工作流 + RAG 知识增强 + 会话记忆 + 自纠错循环，持续学习与进化。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 22: 路线图与总结
+     =========================================== -->
+<section class="slide" data-slide="22">
+  <div class="content-slide">
+    <div class="content-header reveal r01">
+      <div class="slide-header" style="position:static;padding:0;">
+        <div class="eyebrow">ROADMAP</div>
+        <div class="tag-pill">路线图</div>
+      </div>
+      <h2 class="section-h2" style="margin-top:8px;">发展路线图与总结</h2>
+    </div>
+    <div class="split-layout" style="flex:1;">
+      <div style="display:flex;flex-direction:column;gap:16px;justify-content:center;">
+        <div class="card reveal r02">
+          <h3>当前能力（v0.1.0）</h3>
+          <ul>
+            <li>NL→SQL→API 全链路工作流</li>
+            <li>多方言数据库支持（6 种）</li>
+            <li>安全验证、风险分级、人工审核</li>
+            <li>六层合约门禁与合规检查</li>
+            <li>RBAC/ABAC 权限体系</li>
+            <li>数据血缘与治理引擎</li>
+            <li>RAG 与 5 层记忆系统</li>
+            <li>MCP 服务与平台构建 API</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;justify-content:center;">
+        <div class="card reveal r03">
+          <h3>规划方向</h3>
+          <ul>
+            <li>多 LLM 提供商支持（Claude/Gemini）</li>
+            <li>实时流式响应输出</li>
+            <li>更丰富的可视化血缘图</li>
+            <li>增强的 SQL 优化器</li>
+            <li>多租户 SaaS 化支持</li>
+            <li>性能基准测试与优化</li>
+            <li>API 市场与发布管理</li>
+            <li>自动化回归测试套件</li>
+          </ul>
+        </div>
+        <div class="highlight-block reveal r04">
+          <div style="font-weight:600;color:var(--text);font-size:15px;">总结</div>
+          <div style="font-size:14px;color:var(--text-muted);margin-top:4px;">API Agent 是面向企业级场景的 AI Agent 系统，通过 LangGraph 工作流引擎将自然语言智能转换为安全、合规、可部署的生产级 API，实现数据民主化与 API 经济的深度融合。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===========================================
+     SLIDE 23: CLOSING
+     =========================================== -->
+<section class="slide" data-slide="23">
+  <div class="closing-circles">
+    <div class="outer"></div>
+    <div class="inner"></div>
+  </div>
+  <div class="closing-content">
+    <div class="cover-accent-line reveal r01"></div>
+    <h1 class="cover-title reveal r02" style="font-size:52px;">谢谢</h1>
+    <p class="cover-subtitle reveal r03" style="font-size:24px;">API Agent — 企业级 AI Agent 系统</p>
+    <div style="margin-top:40px;">
+      <div class="cover-meta reveal r04" style="margin-bottom:8px;">从自然语言到生产级 API</div>
+      <div class="cover-meta reveal r05" style="font-size:12px;">内部方案汇报 · 2026</div>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<!-- ===========================================
+     PERSISTENT CHROME
+     =========================================== -->
+<div class="progress-bar" id="progressBar" style="width:4.35%;"></div>
+<div class="slide-counter" id="slideCounter">01 / 23</div>
+<div class="nav-controls">
+  <button class="nav-btn" id="prevBtn" disabled>&larr;</button>
+  <button class="nav-btn" id="nextBtn">&rarr;</button>
+</div>
+<div class="keyboard-hint">使用方向键或空格键导航</div>
+
+<!-- ===========================================
+     INLINE EDITING
+     =========================================== -->
+<div class="edit-hotzone" style="position:fixed;top:0;left:0;width:80px;height:80px;z-index:10000;cursor:pointer;"></div>
+<button class="edit-toggle" id="editToggle" title="编辑模式 (E)" style="position:fixed;top:12px;left:8px;z-index:10001;opacity:0;pointer-events:none;transition:opacity 0.3s ease;background:var(--primary);color:var(--bg);border:none;border-radius:100px;padding:8px 16px;font-family:var(--font-display);font-size:13px;cursor:pointer;">✏️ 编辑</button>
+
+<script>
+/* ===========================================
+   SLIDE PRESENTATION CONTROLLER
+   =========================================== */
+class SlidePresentation {
+  constructor() {
+    this.slides = document.querySelectorAll('.slide');
+    this.total = this.slides.length;
+    this.current = 0;
+    this.stage = document.getElementById('deckStage');
+    this.progress = document.getElementById('progressBar');
+    this.counter = document.getElementById('slideCounter');
+    this.prevBtn = document.getElementById('prevBtn');
+    this.nextBtn = document.getElementById('nextBtn');
+
+    this.setupStageScale();
+    this.setupKeyboardNav();
+    this.setupTouchNav();
+    this.setupWheelNav();
+    this.setupButtonNav();
+    this.showSlide(0);
+  }
+
+  setupStageScale() {
+    const scale = () => {
+      const vp = document.querySelector('.deck-viewport');
+      const sx = vp.clientWidth / 1920;
+      const sy = vp.clientHeight / 1080;
+      const s = Math.min(sx, sy);
+      const ox = (vp.clientWidth - 1920 * s) / 2;
+      const oy = (vp.clientHeight - 1080 * s) / 2;
+      this.stage.style.transform = 'translate(' + ox + 'px, ' + oy + 'px) scale(' + s + ')';
+    };
+    scale();
+    window.addEventListener('resize', scale);
+  }
+
+  showSlide(index) {
+    this.current = Math.max(0, Math.min(index, this.total - 1));
+    this.slides.forEach((slide, i) => {
+      slide.classList.toggle('active', i === this.current);
+      slide.classList.toggle('visible', i === this.current);
+    });
+    var pct = ((this.current + 1) / this.total * 100).toFixed(2);
+    this.progress.style.width = pct + '%';
+    this.counter.textContent = String(this.current + 1).padStart(2, '0') + ' / ' + String(this.total).padStart(2, '0');
+    this.prevBtn.disabled = this.current === 0;
+    this.nextBtn.disabled = this.current === this.total - 1;
+  }
+
+  setupKeyboardNav() {
+    document.addEventListener('keydown', (e) => {
+      var target = e.target;
+      if (target.getAttribute('contenteditable')) return;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+        e.preventDefault();
+        if (this.current < this.total - 1) this.showSlide(this.current + 1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (this.current > 0) this.showSlide(this.current - 1);
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        this.showSlide(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        this.showSlide(this.total - 1);
+      } else if ((e.key === 'e' || e.key === 'E') && !target.getAttribute('contenteditable')) {
+        editor.toggleEditMode();
+      }
+    });
+  }
+
+  setupTouchNav() {
+    var startX = 0, startY = 0;
+    document.addEventListener('touchstart', (e) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+      var dx = e.changedTouches[0].clientX - startX;
+      var dy = e.changedTouches[0].clientY - startY;
+      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+      if (dx < 0 && this.current < this.total - 1) this.showSlide(this.current + 1);
+      else if (dx > 0 && this.current > 0) this.showSlide(this.current - 1);
+    }, { passive: true });
+  }
+
+  setupWheelNav() {
+    var ticking = false;
+    document.addEventListener('wheel', (e) => {
+      if (ticking) return;
+      var target = e.target;
+      if (target.getAttribute('contenteditable')) return;
+      ticking = true;
+      setTimeout(() => { ticking = false; }, 600);
+      if (e.deltaY > 0 && this.current < this.total - 1) this.showSlide(this.current + 1);
+      else if (e.deltaY < 0 && this.current > 0) this.showSlide(this.current - 1);
+    }, { passive: true });
+  }
+
+  setupButtonNav() {
+    this.prevBtn.addEventListener('click', () => { if (this.current > 0) this.showSlide(this.current - 1); });
+    this.nextBtn.addEventListener('click', () => { if (this.current < this.total - 1) this.showSlide(this.current + 1); });
+  }
+}
+
+var presentation = new SlidePresentation();
+
+/* ===========================================
+   INLINE EDITING
+   =========================================== */
+var editor = {
+  isActive: false,
+  toggleEditMode: function() {
+    this.isActive = !this.isActive;
+    var btn = document.getElementById('editToggle');
+    var slides = document.querySelectorAll('.slide.active .slide-content, .slide.active .cover-content, .slide.active .closing-content, .slide.active .card, .slide.active h1, .slide.active h2, .slide.active h3, .slide.active p, .slide.active li, .slide.active .eyebrow, .slide.active .section-h2, .slide.active .metric-label, .slide.active .stat-name, .slide.active .cover-title, .slide.active .cover-subtitle, .slide.active .cover-badge, .slide.active .cover-meta, .slide.active .step-label, .slide.active .step-desc, .slide.active .tag-pill');
+    if (this.isActive) {
+      btn.textContent = '✓ 完成';
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+      slides.forEach(function(el) { el.setAttribute('contenteditable', 'true'); el.style.outline = '1px dashed rgba(30,43,250,0.3)'; el.style.borderRadius = '2px'; el.style.cursor = 'text'; });
+    } else {
+      btn.textContent = '✏️ 编辑';
+      if (!hotzoneActive) { btn.style.opacity = '0'; btn.style.pointerEvents = 'none'; }
+      slides.forEach(function(el) { el.removeAttribute('contenteditable'); el.style.outline = ''; el.style.cursor = ''; });
+      this.saveToLocal();
+    }
+  },
+  saveToLocal: function() {
+    try {
+      var data = {};
+      document.querySelectorAll('[contenteditable]').forEach(function(el, i) { data['el-' + i] = el.innerHTML; });
+      localStorage.setItem('presentation-edits', JSON.stringify(data));
+    } catch(e) {}
+  }
+};
+
+/* Edit toggle hotzone */
+var hotzone = document.querySelector('.edit-hotzone');
+var editToggle = document.getElementById('editToggle');
+var hideTimeout = null;
+var hotzoneActive = false;
+
+hotzone.addEventListener('mouseenter', function() {
+  clearTimeout(hideTimeout);
+  if (!editor.isActive) {
+    editToggle.classList.add('show');
+    editToggle.style.opacity = '1';
+    editToggle.style.pointerEvents = 'auto';
+    hotzoneActive = true;
+  }
+});
+hotzone.addEventListener('mouseleave', function() {
+  hideTimeout = setTimeout(function() {
+    if (!editor.isActive) {
+      editToggle.style.opacity = '0';
+      editToggle.style.pointerEvents = 'none';
+      hotzoneActive = false;
+    }
+  }, 400);
+});
+editToggle.addEventListener('mouseenter', function() {
+  clearTimeout(hideTimeout);
+});
+editToggle.addEventListener('mouseleave', function() {
+  hideTimeout = setTimeout(function() {
+    if (!editor.isActive) {
+      editToggle.style.opacity = '0';
+      editToggle.style.pointerEvents = 'none';
+      hotzoneActive = false;
+    }
+  }, 400);
+});
+hotzone.addEventListener('click', function() { editor.toggleEditMode(); });
+editToggle.addEventListener('click', function() { editor.toggleEditMode(); });
+
+/* Ctrl+S save handler */
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    if (editor.isActive) {
+      editor.saveToLocal();
+      var btn = document.getElementById('editToggle');
+      var orig = btn.textContent;
+      btn.textContent = '✓ 已保存';
+      setTimeout(function() { btn.textContent = editor.isActive ? '✓ 完成' : '✏️ 编辑'; }, 1000);
+    }
+  }
+});
+
+/* Restore edits from localStorage */
+try {
+  var saved = localStorage.getItem('presentation-edits');
+  if (saved) {
+    var data = JSON.parse(saved);
+    document.querySelectorAll('[contenteditable]').forEach(function(el, i) {
+      if (data['el-' + i]) el.innerHTML = data['el-' + i];
+    });
+  }
+} catch(e) {}
+</script>
+</body>
+</html>
