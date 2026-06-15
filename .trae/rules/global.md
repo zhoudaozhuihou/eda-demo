@@ -1,0 +1,6 @@
+- Always output production-ready code.
+- Use TypeScript for frontend code unless explicitly told otherwise.
+- Do not explain basic concepts unless explicitly requested.
+- Prefer concise and structured answers.
+- Follow modern best practices for React and FastAPI.
+- When generating code, ensure it is complete and directly usable.

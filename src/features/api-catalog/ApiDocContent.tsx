@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/app/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/app/components/ui/collapsible';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -470,6 +471,111 @@ function buildApiStatusCodes(api: API, t: TFunction): ApiStatusCode[] {
   return base.filter((s) => (seen.has(s.httpStatus) ? false : (seen.add(s.httpStatus), true)));
 }
 
+function normalizeExampleValue(p: ApiDocParam) {
+  const raw = p.example ?? p.defaultValue;
+  if (raw == null) return undefined;
+  const typeId = p.type.toLowerCase();
+  if (typeId === 'int' || typeId === 'bigint' || typeId === 'number' || typeId === 'decimal') {
+    const num = Number(raw);
+    if (!Number.isNaN(num)) return num;
+  }
+  if (typeId === 'bool' || typeId === 'boolean') {
+    if (raw === 'true' || raw === '1') return true;
+    if (raw === 'false' || raw === '0') return false;
+  }
+  if (typeId === 'array' || typeId === 'object') {
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return raw;
+      }
+    }
+  }
+  return raw;
+}
+
+function guessExampleValue(p: ApiDocParam) {
+  const normalized = normalizeExampleValue(p);
+  if (normalized !== undefined) return normalized;
+  const typeId = p.type.toLowerCase();
+  if (typeId === 'int' || typeId === 'bigint') return 1;
+  if (typeId === 'number' || typeId === 'decimal') return 1.0;
+  if (typeId === 'bool' || typeId === 'boolean') return true;
+  if (typeId === 'array') return [];
+  if (typeId === 'object') return {};
+  if (typeId === 'datetime') return '2025-01-01 00:00:00';
+  return 'string';
+}
+
+function applyNestedValue(target: Record<string, unknown>, segments: string[], value: unknown) {
+  let current: Record<string, unknown> | unknown[] = target;
+  segments.forEach((seg, index) => {
+    const isArray = seg.endsWith('[]');
+    const key = isArray ? seg.slice(0, -2) : seg;
+    const isLast = index === segments.length - 1;
+    if (isArray) {
+      const arr = Array.isArray((current as Record<string, unknown>)[key])
+        ? ((current as Record<string, unknown>)[key] as unknown[])
+        : [];
+      if (arr.length === 0) {
+        arr.push(isLast ? value : {});
+      } else if (isLast) {
+        arr[0] = value;
+      }
+      (current as Record<string, unknown>)[key] = arr;
+      if (!isLast) current = arr[0] as Record<string, unknown>;
+      return;
+    }
+    if (isLast) {
+      (current as Record<string, unknown>)[key] = value;
+      return;
+    }
+    const existing = (current as Record<string, unknown>)[key];
+    if (!existing || typeof existing !== 'object') {
+      (current as Record<string, unknown>)[key] = {};
+    }
+    current = (current as Record<string, unknown>)[key] as Record<string, unknown>;
+  });
+}
+
+function buildPathWithParams(path: string, params: ApiDocParam[]) {
+  return params.reduce((next, p) => {
+    const value = encodeURIComponent(String(guessExampleValue(p)));
+    return next.replace(`:${p.name}`, value).replace(`{${p.name}}`, value);
+  }, path);
+}
+
+function buildQueryString(params: ApiDocParam[]) {
+  return params
+    .map((p) => {
+      const raw = guessExampleValue(p);
+      const value = typeof raw === 'string' ? raw : JSON.stringify(raw);
+      return `${encodeURIComponent(p.name)}=${encodeURIComponent(value)}`;
+    })
+    .join('&');
+}
+
+function buildRequestExample(api: API, params: ApiDocParam[]) {
+  const path = buildPathWithParams(
+    api.path,
+    params.filter((p) => p.location === 'path'),
+  );
+  if (api.method === 'GET') {
+    const query = buildQueryString(params.filter((p) => p.location === 'query'));
+    return `${api.method} ${query ? `${path}?${query}` : path}`;
+  }
+  const bodyParams = params.filter((p) => p.location === 'body');
+  if (bodyParams.length === 0) return `${api.method} ${path}`;
+  const body: Record<string, unknown> = {};
+  bodyParams.forEach((p) => {
+    const segments = p.name.split('.').filter(Boolean);
+    if (segments.length === 0) return;
+    applyNestedValue(body, segments, guessExampleValue(p));
+  });
+  return `${api.method} ${path}\n\n${JSON.stringify(body, null, 2)}`;
+}
+
 function VirtualizedRows<T>({
   items,
   height,
@@ -557,10 +663,12 @@ function ApiDocParamTable({
   title,
   params,
   editable,
+  variant = 'default',
 }: {
   title: string;
   params: ApiDocParam[];
   editable?: boolean;
+  variant?: 'default' | 'query';
 }) {
   const { t, i18n } = useTranslation('apiCatalog');
   const [search, setSearch] = useState('');
@@ -595,28 +703,34 @@ function ApiDocParamTable({
     return { keyParams, groupEntries };
   }, [localeForSort, matches, normalized, params, searchGroupId]);
 
-  const columns = useMemo(
-    () =>
-      editable
-        ? [
-            { key: 'name', label: t('doc.paramTable.columns.name'), className: 'col-span-3' },
-            { key: 'type', label: t('doc.paramTable.columns.type'), className: 'col-span-2' },
-            { key: 'required', label: t('doc.paramTable.columns.required'), className: 'col-span-1' },
-            { key: 'location', label: t('doc.paramTable.columns.location'), className: 'col-span-1' },
-            { key: 'value', label: t('doc.paramTable.columns.value'), className: 'col-span-2' },
-            { key: 'defaultValue', label: t('doc.paramTable.columns.defaultValue'), className: 'col-span-1' },
-            { key: 'description', label: t('doc.paramTable.columns.description'), className: 'col-span-2' },
-          ]
-        : [
-            { key: 'name', label: t('doc.paramTable.columns.name'), className: 'col-span-3' },
-            { key: 'type', label: t('doc.paramTable.columns.type'), className: 'col-span-2' },
-            { key: 'required', label: t('doc.paramTable.columns.required'), className: 'col-span-1' },
-            { key: 'location', label: t('doc.paramTable.columns.location'), className: 'col-span-1' },
-            { key: 'defaultValue', label: t('doc.paramTable.columns.defaultValue'), className: 'col-span-2' },
-            { key: 'description', label: t('doc.paramTable.columns.description'), className: 'col-span-3' },
-          ],
-    [editable, t],
-  );
+  const columns = useMemo(() => {
+    if (variant === 'query') {
+      return [
+        { key: 'name', label: t('doc.paramTable.columns.queryName'), className: 'col-span-4' },
+        { key: 'type', label: t('doc.paramTable.columns.type'), className: 'col-span-2' },
+        { key: 'required', label: t('doc.paramTable.columns.queryRequired'), className: 'col-span-2' },
+        { key: 'description', label: t('doc.paramTable.columns.description'), className: 'col-span-4' },
+      ];
+    }
+    return editable
+      ? [
+          { key: 'name', label: t('doc.paramTable.columns.name'), className: 'col-span-3' },
+          { key: 'type', label: t('doc.paramTable.columns.type'), className: 'col-span-2' },
+          { key: 'required', label: t('doc.paramTable.columns.required'), className: 'col-span-1' },
+          { key: 'location', label: t('doc.paramTable.columns.location'), className: 'col-span-1' },
+          { key: 'value', label: t('doc.paramTable.columns.value'), className: 'col-span-2' },
+          { key: 'defaultValue', label: t('doc.paramTable.columns.defaultValue'), className: 'col-span-1' },
+          { key: 'description', label: t('doc.paramTable.columns.description'), className: 'col-span-2' },
+        ]
+      : [
+          { key: 'name', label: t('doc.paramTable.columns.name'), className: 'col-span-3' },
+          { key: 'type', label: t('doc.paramTable.columns.type'), className: 'col-span-2' },
+          { key: 'required', label: t('doc.paramTable.columns.required'), className: 'col-span-1' },
+          { key: 'location', label: t('doc.paramTable.columns.location'), className: 'col-span-1' },
+          { key: 'defaultValue', label: t('doc.paramTable.columns.defaultValue'), className: 'col-span-2' },
+          { key: 'description', label: t('doc.paramTable.columns.description'), className: 'col-span-3' },
+        ];
+  }, [editable, t, variant]);
 
   const validateValue = (p: ApiDocParam, value: string) => {
     const raw = value.trim();
@@ -687,6 +801,20 @@ function ApiDocParamTable({
   );
 
   const renderRow = (p: ApiDocParam) => {
+    if (variant === 'query') {
+      return (
+        <div className={`grid grid-cols-12 items-center text-sm border-t px-3 ${p.important ? 'bg-primary/5' : ''}`}>
+          <div className="col-span-4 py-2 font-mono truncate" title={p.name}>
+            {p.name}
+          </div>
+          <div className="col-span-2 py-2">
+            <Badge variant="outline">{p.type}</Badge>
+          </div>
+          <div className="col-span-2 py-2">{renderRequired(p)}</div>
+          {renderDescription(p, 'col-span-4')}
+        </div>
+      );
+    }
     const val = getValue(p);
     const err = errors[p.name];
 
@@ -1241,6 +1369,35 @@ export function ApiDocContent({
   const [statusNote, setStatusNote] = useState('');
   const [statusError, setStatusError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [testOpen, setTestOpen] = useState(false);
+  const [queryOpen, setQueryOpen] = useState(false);
+  const isGet = api.method === 'GET';
+  const queryParams = useMemo(() => doc.request.filter((p) => p.location === 'query'), [doc.request]);
+  const pathParams = useMemo(() => doc.request.filter((p) => p.location === 'path'), [doc.request]);
+  const requestParams = useMemo(
+    () => (isGet ? doc.request.filter((p) => p.location === 'query') : doc.request),
+    [doc.request, isGet],
+  );
+  const requestExample = useMemo(() => buildRequestExample(api, doc.request), [api, doc.request]);
+  const requestPath = useMemo(() => {
+    const path = buildPathWithParams(api.path, pathParams);
+    if (!isGet) return `${api.method} ${path}`;
+    const query = buildQueryString(queryParams);
+    return `${api.method} ${query ? `${path}?${query}` : path}`;
+  }, [api.method, api.path, isGet, pathParams, queryParams]);
+  const queryPreview = useMemo(
+    () =>
+      queryParams.map((p) => {
+        const raw = guessExampleValue(p);
+        const value = typeof raw === 'string' ? raw : JSON.stringify(raw);
+        return {
+          name: p.name,
+          encodedName: encodeURIComponent(p.name),
+          encodedValue: encodeURIComponent(value),
+        };
+      }),
+    [queryParams],
+  );
 
   const sections = useMemo(() => [
     { id: 'overview', label: t('doc.sections.basicInfo') },
@@ -1449,9 +1606,9 @@ export function ApiDocContent({
               <Badge
                 className={`ml-2 ${
                   api.method === 'GET'
-                    ? 'bg-green-500'
+                    ? 'bg-blue-500'
                     : api.method === 'POST'
-                      ? 'bg-blue-500'
+                      ? 'bg-green-500'
                       : api.method === 'PUT'
                         ? 'bg-orange-500'
                         : 'bg-red-500'
@@ -1505,9 +1662,31 @@ export function ApiDocContent({
           </div>
 
           <h3 className="mb-2 text-base font-medium">{t('doc.sections.requestPath')}</h3>
-          <code className="block bg-muted p-3 rounded text-sm font-mono whitespace-pre overflow-x-auto max-w-full">
-            {api.method} {api.path}
-          </code>
+          <div className="flex flex-col gap-2">
+            <code className="block bg-muted p-3 rounded text-sm font-mono whitespace-pre-wrap break-all max-w-full">
+              {requestPath}
+            </code>
+            {isGet && queryPreview.length > 0 && (
+              <Collapsible open={queryOpen} onOpenChange={setQueryOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="self-start">
+                    {queryOpen ? t('doc.actions.collapseQueryParams') : t('doc.actions.expandQueryParams')}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="rounded border border-border/60 bg-card p-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm font-mono">
+                    {queryPreview.map((p) => (
+                      <div key={p.name} className="flex items-center gap-2 min-w-0">
+                        <span className="truncate">{p.encodedName}</span>
+                        <span className="text-muted-foreground">=</span>
+                        <span className="truncate">{p.encodedValue}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </div>
         </section>
 
         <div className="w-full h-px bg-border" />
@@ -1527,7 +1706,12 @@ export function ApiDocContent({
 
         <section id="doc-section-request" className="scroll-mt-4">
           <h3 className="mb-4 text-lg font-semibold">{t('doc.tabs.request')}</h3>
-          <ApiDocParamTable title={t('doc.sections.requestParams')} params={doc.request} editable />
+          <ApiDocParamTable
+            title={isGet ? t('doc.sections.queryParams') : t('doc.sections.requestParams')}
+            params={requestParams}
+            editable={!isGet}
+            variant={isGet ? 'query' : 'default'}
+          />
         </section>
 
         <div className="w-full h-px bg-border" />
@@ -1549,6 +1733,12 @@ export function ApiDocContent({
         <section id="doc-section-example" className="scroll-mt-4">
           <h3 className="mb-4 text-lg font-semibold">{t('doc.tabs.example')}</h3>
           <div className="space-y-6">
+            <div>
+              <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t('doc.sections.requestExample')}</h4>
+              <pre className="bg-muted p-4 rounded text-xs font-mono overflow-x-auto">
+                {requestExample}
+              </pre>
+            </div>
             <div>
               <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t('doc.sections.successResponseExample')}</h4>
               <pre className="bg-muted p-4 rounded text-xs font-mono overflow-x-auto">
@@ -1575,7 +1765,7 @@ export function ApiDocContent({
 
             <div>
               <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t('doc.sections.onlineTest')}</h4>
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={() => setTestOpen(true)}>
                 <Play className="size-4" />
                 {t('doc.actions.openTestTool')}
               </Button>
@@ -1583,6 +1773,25 @@ export function ApiDocContent({
           </div>
         </section>
       </div>
+
+      <Dialog open={testOpen} onOpenChange={setTestOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('doc.testTool.title')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div className="text-muted-foreground">{t('doc.testTool.requestPreview')}</div>
+            <pre className="bg-muted p-4 rounded text-xs font-mono overflow-x-auto">
+              {requestExample}
+            </pre>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTestOpen(false)}>
+              {t('actions.close', { defaultValue: 'Close' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isLineageOpen} onOpenChange={setIsLineageOpen}>
         <DialogContent className="max-w-4xl">

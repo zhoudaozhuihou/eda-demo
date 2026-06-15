@@ -51,6 +51,16 @@
       "badges": {
         "dynamic": "Dynamic filters",
         "parameterized": "Parameterized"
+      },
+      "steps": {
+        "2": {
+          "name": "Configure injection point",
+          "desc": "Set the position and parameters for SQL injection point"
+        },
+        "3": {
+          "name": "Write query SQL",
+          "desc": "Write a SELECT query with injection points"
+        }
       }
     },
     "batch": {
@@ -59,6 +69,96 @@
       "badges": {
         "bulk": "Bulk",
         "template": "Templates"
+      }
+    },
+    "aggregate": {
+      "title": "Aggregate Query",
+      "description": "Support COUNT, SUM, AVG and other aggregate functions for data analysis and statistics.",
+      "badges": {
+        "sum": "SUM",
+        "count": "COUNT"
+      },
+      "steps": {
+        "3": {
+          "name": "Configure aggregate functions",
+          "desc": "Select group by fields and aggregate functions"
+        },
+        "4": {
+          "name": "Configure output format",
+          "desc": "Set output format and date format"
+        },
+        "5": {
+          "name": "Configure filter conditions",
+          "desc": "Set HAVING conditions"
+        }
+      },
+      "groupBy": {
+        "label": "Group By Fields",
+        "hint": "Click to select group by fields"
+      },
+      "functions": {
+        "label": "Aggregate Functions"
+      },
+      "having": {
+        "label": "Filter Conditions (HAVING)",
+        "placeholder": "e.g., COUNT(*) > 10",
+        "hint": "Set filter conditions after aggregation"
+      },
+      "outputFormat": {
+        "label": "Output Format"
+      },
+      "dateFormat": {
+        "label": "Date Format"
+      },
+      "nesting": {
+        "label": "Nesting Level",
+        "placeholder": "e.g., data.results",
+        "hint": "Set the nested structure of JSON output"
+      }
+    },
+    "complex": {
+      "title": "Complex Business Logic",
+      "description": "Support multi-step business logic, transaction processing and error recovery mechanisms.",
+      "badges": {
+        "workflow": "Workflow",
+        "logic": "Business Logic"
+      },
+      "steps": {
+        "3": {
+          "name": "Design business logic",
+          "desc": "Design data processing workflow"
+        },
+        "4": {
+          "name": "Configure execution strategy",
+          "desc": "Configure transaction and error handling strategy"
+        },
+        "5": {
+          "name": "Write business logic",
+          "desc": "Write complex business logic code"
+        },
+        "6": {
+          "name": "Configure cache strategy",
+          "desc": "Configure data caching strategy"
+        }
+      },
+      "workflow": {
+        "label": "Workflow Design",
+        "placeholder": "Drag and drop components to design workflow"
+      },
+      "transaction": {
+        "label": "Transaction Processing",
+        "enable": "Enable transaction support"
+      },
+      "errorHandling": {
+        "label": "Error Handling Strategy"
+      },
+      "timeout": {
+        "label": "Timeout (seconds)",
+        "hint": "Set the maximum execution time for a single step"
+      },
+      "cache": {
+        "label": "Cache Strategy",
+        "hint": "Configure data caching to improve performance"
       }
     }
   },
@@ -111,6 +211,19 @@
   },
   "join": {
     "title": "Join tables",
+    "steps": {
+      "2": {
+        "desc": "Select main table and configure join relationships"
+      },
+      "3": {
+        "name": "Configure join conditions",
+        "desc": "Set the join types and conditions between tables"
+      },
+      "4": {
+        "name": "Join query optimization",
+        "desc": "Optimize JOIN performance, select index strategies"
+      }
+    },
     "actions": {
       "add": "Add join"
     },
@@ -140,9 +253,43 @@
         "label": "ON condition",
         "placeholder": "e.g., t1.id = t2.order_id"
       }
+    },
+    "optimization": {
+      "indexStrategy": "Index Strategy",
+      "indexStrategy.auto": "Auto Select",
+      "indexStrategy.forceIndex": "Force Index",
+      "indexStrategy.noIndex": "Disable Index",
+      "indexStrategy.hint": "Automatically select optimal index strategy based on data size",
+      "joinOrder": "Join Order Optimization",
+      "joinOrder.auto": "Auto Optimize",
+      "joinOrder.straight": "As Defined",
+      "joinOrder.hint": "Control the execution order of multiple table joins",
+      "subquery": "Subquery Optimization",
+      "subquery.placeholder": "e.g., SELECT * FROM (SELECT ...) AS subq",
+      "subquery.hint": "Use subqueries to pre-filter data for better performance",
+      "tables": "Tables involved in join: {{count}}",
+      "analyze": "Analyze Optimization",
+      "tip": "Tip: Create indexes on large tables and ensure ON conditions use indexed columns"
     }
   },
   "batch": {
+    "steps": {
+      "1": {
+        "desc": "Select data source connection"
+      },
+      "2": {
+        "name": "Select tables",
+        "desc": "Select tables for batch generation"
+      },
+      "3": {
+        "name": "Preview generation",
+        "desc": "Preview the list of APIs to be generated"
+      },
+      "4": {
+        "name": "Configure template",
+        "desc": "Configure template specifications for batch generation"
+      }
+    },
     "config": {
       "title": "Batch generation",
       "databaseType": {

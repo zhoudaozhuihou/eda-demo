@@ -1,12 +1,13 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ApiDocStatusCodes } from './ApiDocContent';
+import { ApiDocContent, ApiDocStatusCodes } from './ApiDocContent';
 import { ApiCatalogApi } from './types';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 
 // Mock translation
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
+    i18n: { language: 'en-US' },
   }),
 }));
 
@@ -26,6 +27,43 @@ const mockApi: ApiCatalogApi = {
   authType: 'NONE',
   createdAt: '2023-01-01',
 };
+
+const getOrdersApi: ApiCatalogApi = {
+  id: '2',
+  name: 'getUserOrders',
+  path: '/api/v1/orders/user',
+  method: 'GET',
+  domain: 'Order',
+  category: 'Order',
+  description: 'User orders',
+  version: '1.0.0',
+  status: 'active',
+  qps: 10,
+  avgLatency: 50,
+  callsToday: 100,
+  authType: 'API_KEY',
+  createdAt: '2023-01-01',
+};
+
+beforeAll(() => {
+  class MockIntersectionObserver implements IntersectionObserver {
+    root: Element | Document | null = null;
+    rootMargin = '';
+    thresholds: ReadonlyArray<number> = [];
+    constructor() {}
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  }
+  globalThis.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
+});
+
+afterAll(() => {
+  delete (globalThis as { IntersectionObserver?: typeof IntersectionObserver }).IntersectionObserver;
+});
 
 describe('ApiDocStatusCodes', () => {
   it('renders status codes in collapsed state by default', () => {
@@ -79,5 +117,21 @@ describe('ApiDocStatusCodes', () => {
     // Then collapse all
     fireEvent.click(screen.getByText('doc.statusCodes.actions.collapseAll'));
     expect(screen.queryByText('doc.statusCodes.labels.scenario')).toBeNull();
+  });
+});
+
+describe('ApiDocContent request path', () => {
+  it('renders GET path with encoded query parameters', () => {
+    render(<ApiDocContent api={getOrdersApi} versions={[getOrdersApi]} />);
+
+    expect(
+      screen.getAllByText('GET /api/v1/orders/user?user_id=1&page=1&page_size=20').length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByText('doc.actions.expandQueryParams'));
+
+    expect(screen.getAllByText('user_id').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('page').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('page_size').length).toBeGreaterThan(0);
   });
 });

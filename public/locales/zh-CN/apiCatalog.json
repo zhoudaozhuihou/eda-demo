@@ -151,8 +151,10 @@
     "paramTable": {
       "columns": {
         "name": "参数名",
+        "queryName": "查询参数名称",
         "type": "类型",
         "required": "必填",
+        "queryRequired": "是否必需",
         "location": "位置",
         "value": "值",
         "defaultValue": "默认值",
@@ -238,7 +240,9 @@
       "basicInfo": "基本信息",
       "requestPath": "请求路径",
       "requestParams": "请求参数",
+      "queryParams": "查询参数",
       "responseParams": "响应参数",
+      "requestExample": "请求示例",
       "successResponseExample": "成功响应示例",
       "onlineTest": "在线测试"
     },
@@ -255,7 +259,13 @@
       "example": "示例与测试"
     },
     "actions": {
-      "openTestTool": "打开测试工具"
+      "openTestTool": "打开测试工具",
+      "expandQueryParams": "展开查询参数",
+      "collapseQueryParams": "收起查询参数"
+    },
+    "testTool": {
+      "title": "测试工具",
+      "requestPreview": "请求预览"
     },
     "dialog": {
       "defaultTitle": "API 文档",

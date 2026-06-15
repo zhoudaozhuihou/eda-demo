@@ -42,6 +42,11 @@
 
 ### 2.2 API 管理 (APIs)
 
+#### GET 请求参数说明
+*   **GET** 请求参数使用 Query 方式传递，不包含请求体。
+*   示例：`GET /apis?name=getUserInfo&status=active`
+*   管理端文档展示会在请求路径中拼接查询字符串，并对参数进行 URL 编码。
+
 #### 创建 API 草稿
 *   **POST** `/apis`
 *   **Body**:

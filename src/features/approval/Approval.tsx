@@ -19,6 +19,31 @@ import type { ApprovalRequest } from '@/features/approval/types';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime } from '@/i18n/format';
 
+const getAvatarLabel = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return '?';
+  return trimmed.charAt(0);
+};
+
+const getAvatarColors = (value: string) => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) % 360;
+  }
+  const hue = Math.abs(hash) % 360;
+  return {
+    bg: `hsl(${hue} 70% 85%)`,
+    fg: `hsl(${hue} 35% 30%)`,
+  };
+};
+
+const buildAvatarDataUrl = (value: string) => {
+  const label = getAvatarLabel(value).toUpperCase();
+  const { bg, fg } = getAvatarColors(value || label);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="100%" height="100%" fill="${bg}"/><text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="28" fill="${fg}">${label}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+};
+
 export function Approval() {
   const { t, i18n } = useTranslation(['approval', 'datasets']);
   const [searchTerm, setSearchTerm] = useState('');
@@ -610,7 +635,7 @@ export function Approval() {
                   <div className="text-sm text-muted-foreground mb-1">{t('detail.requester.label')}</div>
                   <div className="flex items-center gap-2">
                     <Avatar className="size-8">
-                      <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedRequest.requesterAvatar}`} />
+                      <AvatarImage src={buildAvatarDataUrl(selectedRequest.requester)} />
                       <AvatarFallback>{selectedRequest.requester.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
@@ -648,8 +673,8 @@ export function Approval() {
                       <div>
                         <div className="text-sm font-medium mb-1">{t('detail.package.tables')}</div>
                         <div className="flex flex-wrap gap-2">
-                          {selectedRequest.packageInfo.tables.map((table) => (
-                            <Badge key={table} variant="outline" className="bg-background">
+                          {selectedRequest.packageInfo.tables.map((table, index) => (
+                            <Badge key={`${table}-${index}`} variant="outline" className="bg-background">
                               {table}
                             </Badge>
                           ))}
@@ -783,7 +808,7 @@ function ApprovalCard({
             </div>
           )}
           <Avatar className="size-12">
-            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${request.requesterAvatar}`} />
+            <AvatarImage src={buildAvatarDataUrl(request.requester)} />
             <AvatarFallback>{request.requester.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">

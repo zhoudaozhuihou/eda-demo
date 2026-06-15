@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -16,8 +16,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/app/components/ui/table';
-import { ArrowRight, ArrowLeft, CheckCircle, AlertTriangle, Sparkles, Plus, X, Link2, Syringe, Layers2, Search, ChevronDown, ChevronRight, Pin, PinOff, BarChart2, Database, FolderPlus } from 'lucide-react';
+import { ArrowRight, ArrowLeft, CheckCircle, AlertTriangle, Sparkles, Plus, X, Link2, Syringe, Layers2, Search, ChevronDown, ChevronRight, Pin, PinOff, BarChart2, Database, FolderPlus, Info, Settings } from 'lucide-react';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { useTranslation } from 'react-i18next';
 
 // Mock Data for Connections
@@ -76,6 +77,13 @@ interface Field {
   category?: string;
   isPinned?: boolean;
   usageScore?: number;
+  validation?: {
+    format?: string;
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+    errorMessage?: string;
+  };
 }
 
 interface JoinTable {
@@ -122,7 +130,7 @@ export function APIBuilder({
 }) {
   const { t } = useTranslation('apiBuilder');
   const [currentStep, setCurrentStep] = useState(1);
-  const [buildMode, setBuildMode] = useState<'single' | 'join' | 'inject' | 'batch'>('single');
+  const [buildMode, setBuildMode] = useState<'single' | 'join' | 'inject' | 'batch' | 'aggregate' | 'complex'>('single');
   const [databaseType, setDatabaseType] = useState<DatabaseType>('MySQL');
   const [apiConfig, setApiConfig] = useState({
     name: '',
@@ -131,7 +139,9 @@ export function APIBuilder({
     authType: 'API_KEY',
     domain: '',
     qpsLimit: '100',
+    paramValidation: 'joi'
   });
+  const [editingFieldRule, setEditingFieldRule] = useState<number | null>(null);
 
   const [joinTables, setJoinTables] = useState<JoinTable[]>([]);
   const [batchAPIs, setBatchAPIs] = useState<BatchAPIConfig[]>([
@@ -288,15 +298,86 @@ export function APIBuilder({
     };
   }, [t]);
 
+  const singleSteps = useMemo(() => [
+    { id: 1, name: t('steps.1.name'), desc: t('steps.1.desc') },
+    { id: 2, name: t('steps.2.name'), desc: t('steps.2.desc') },
+    { id: 3, name: t('steps.3.name'), desc: t('steps.3.desc') },
+    { id: 4, name: t('steps.4.name'), desc: t('steps.4.desc') },
+    { id: 5, name: t('steps.5.name'), desc: t('steps.5.desc') },
+  ], [t]);
+
+  const joinSteps = useMemo(() => [
+    { id: 1, name: t('steps.1.name'), desc: t('steps.1.desc') },
+    { id: 2, name: t('steps.2.name'), desc: t('join.steps.2.desc') },
+    { id: 3, name: t('join.steps.3.name'), desc: t('join.steps.3.desc') },
+    { id: 4, name: t('join.steps.4.name'), desc: t('join.steps.4.desc') },
+    { id: 5, name: t('steps.4.name'), desc: t('steps.4.desc') },
+    { id: 6, name: t('steps.5.name'), desc: t('steps.5.desc') },
+  ], [t]);
+
+  const injectSteps = useMemo(() => [
+    { id: 1, name: t('steps.1.name'), desc: t('steps.1.desc') },
+    { id: 2, name: t('steps.2.name'), desc: t('steps.2.desc') },
+    { id: 3, name: t('steps.3.name'), desc: t('steps.3.desc') },
+    { id: 4, name: t('steps.4.name'), desc: t('steps.4.desc') },
+    { id: 5, name: t('steps.5.name'), desc: t('steps.5.desc') },
+  ], [t]);
+
+  const batchSteps = useMemo(() => [
+    { id: 1, name: t('steps.1.name'), desc: t('batch.steps.1.desc') },
+    { id: 2, name: t('batch.steps.2.name'), desc: t('batch.steps.2.desc') },
+    { id: 3, name: t('batch.steps.3.name'), desc: t('batch.steps.3.desc') },
+    { id: 4, name: t('batch.steps.4.name'), desc: t('batch.steps.4.desc') },
+  ], [t]);
+
+  const aggregateSteps = useMemo(() => [
+    { id: 1, name: t('steps.1.name'), desc: t('steps.1.desc') },
+    { id: 2, name: t('steps.2.name'), desc: t('steps.2.desc') },
+    { id: 3, name: t('aggregate.steps.3.name'), desc: t('aggregate.steps.3.desc') },
+    { id: 4, name: t('aggregate.steps.4.name'), desc: t('aggregate.steps.4.desc') },
+    { id: 5, name: t('aggregate.steps.5.name'), desc: t('aggregate.steps.5.desc') },
+    { id: 6, name: t('steps.4.name'), desc: t('steps.4.desc') },
+    { id: 7, name: t('steps.5.name'), desc: t('steps.5.desc') },
+  ], [t]);
+
+  const complexSteps = useMemo(() => [
+    { id: 1, name: t('steps.1.name'), desc: t('steps.1.desc') },
+    { id: 2, name: t('steps.2.name'), desc: t('steps.2.desc') },
+    { id: 3, name: t('complex.steps.3.name'), desc: t('complex.steps.3.desc') },
+    { id: 4, name: t('complex.steps.4.name'), desc: t('complex.steps.4.desc') },
+    { id: 5, name: t('complex.steps.5.name'), desc: t('complex.steps.5.desc') },
+    { id: 6, name: t('complex.steps.6.name'), desc: t('complex.steps.6.desc') },
+    { id: 7, name: t('steps.4.name'), desc: t('steps.4.desc') },
+    { id: 8, name: t('steps.5.name'), desc: t('steps.5.desc') },
+  ], [t]);
+
   const steps = useMemo(() => {
-    return [
-      { id: 1, name: t('steps.1.name'), desc: t('steps.1.desc') },
-      { id: 2, name: t('steps.2.name'), desc: t('steps.2.desc') },
-      { id: 3, name: t('steps.3.name'), desc: t('steps.3.desc') },
-      { id: 4, name: t('steps.4.name'), desc: t('steps.4.desc') },
-      { id: 5, name: t('steps.5.name'), desc: t('steps.5.desc') },
-    ];
-  }, [t]);
+    switch (buildMode) {
+      case 'join':
+        return joinSteps;
+      case 'inject':
+        return injectSteps;
+      case 'batch':
+        return batchSteps;
+      case 'aggregate':
+        return aggregateSteps;
+      case 'complex':
+        return complexSteps;
+      default:
+        return singleSteps;
+    }
+  }, [buildMode, singleSteps, joinSteps, injectSteps, batchSteps, aggregateSteps, complexSteps]);
+
+  const getMaxSteps = useCallback(() => {
+    switch (buildMode) {
+      case 'join': return 6;
+      case 'inject': return 5;
+      case 'batch': return 4;
+      case 'aggregate': return 7;
+      case 'complex': return 8;
+      default: return 5;
+    }
+  }, [buildMode]);
 
   useEffect(() => {
     if (!context) return;
@@ -463,8 +544,8 @@ export function APIBuilder({
     setSqlQuery(sql);
   };
 
-  const validateStep = (step: number) => {
-    if (step === 2 && buildMode !== 'batch') {
+  const validateSingleStep = (step: number) => {
+    if (step === 2) {
       if (!selectedConnection) {
         toast.error('请先选择数据库连接');
         return false;
@@ -478,8 +559,7 @@ export function APIBuilder({
         return false;
       }
     }
-
-    if (step === 3 && buildMode !== 'batch') {
+    if (step === 3) {
       if (!fields.some((f) => f.isReturn)) {
         toast.error('请至少选择一个返回字段');
         return false;
@@ -489,8 +569,140 @@ export function APIBuilder({
         return false;
       }
     }
-
     return true;
+  };
+
+  const validateJoinStep = (step: number) => {
+    if (step === 2) {
+      if (!selectedConnection) {
+        toast.error('请先选择数据库连接');
+        return false;
+      }
+      if (!selectedTable) {
+        toast.error('请先选择主表');
+        return false;
+      }
+    }
+    if (step === 3) {
+      if (joinTables.length === 0) {
+        toast.error('请至少添加一个关联表');
+        return false;
+      }
+      for (const jt of joinTables) {
+        if (!jt.table || !jt.onCondition) {
+          toast.error('请完善关联表配置');
+          return false;
+        }
+      }
+      if (!fields.some((f) => f.isReturn)) {
+        toast.error('请至少选择一个返回字段');
+        return false;
+      }
+    }
+    if (step === 5) {
+      if (!sqlQuery.trim()) {
+        toast.error('请输入SQL语句');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const validateInjectStep = (step: number) => {
+    if (step === 2) {
+      if (!selectedConnection) {
+        toast.error('请先选择数据库连接');
+        return false;
+      }
+      if (!selectedTable) {
+        toast.error('请先选择目标表');
+        return false;
+      }
+    }
+    if (step === 4) {
+      if (!sqlQuery.trim()) {
+        toast.error('请输入SQL语句');
+        return false;
+      }
+      if (!sqlQuery.toLowerCase().includes('select')) {
+        toast.error('Inject模式仅支持SELECT查询');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const validateBatchStep = (step: number) => {
+    if (step === 2) {
+      if (!selectedConnection) {
+        toast.error('请先选择数据库连接');
+        return false;
+      }
+    }
+    if (step === 3) {
+      if (!batchAPIs.some((api) => api.enabled)) {
+        toast.error('请至少启用一个API');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const validateAggregateStep = (step: number) => {
+    if (step === 2) {
+      if (!selectedConnection) {
+        toast.error('请先选择数据库连接');
+        return false;
+      }
+      if (!selectedTable) {
+        toast.error('请先选择主表');
+        return false;
+      }
+    }
+    if (step === 6) {
+      if (!sqlQuery.trim()) {
+        toast.error('请输入SQL语句');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const validateComplexStep = (step: number) => {
+    if (step === 2) {
+      if (!selectedConnection) {
+        toast.error('请先选择数据库连接');
+        return false;
+      }
+      if (!selectedTable) {
+        toast.error('请先选择主表');
+        return false;
+      }
+    }
+    if (step === 7) {
+      if (!sqlQuery.trim()) {
+        toast.error('请输入SQL语句');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const validateStep = (step: number) => {
+    switch (buildMode) {
+      case 'join':
+        return validateJoinStep(step);
+      case 'inject':
+        return validateInjectStep(step);
+      case 'batch':
+        return validateBatchStep(step);
+      case 'aggregate':
+        return validateAggregateStep(step);
+      case 'complex':
+        return validateComplexStep(step);
+      default:
+        return validateSingleStep(step);
+    }
   };
 
   const generateRelationalSQL = (returnFields: Field[], paramFields: Field[]) => {
@@ -822,6 +1034,56 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                   </div>
                 </div>
               </Card>
+
+              <Card
+                className={`p-6 cursor-pointer transition-all ${
+                  buildMode === 'aggregate'
+                    ? 'border-primary border-2 bg-primary/5'
+                    : 'hover:border-primary/50'
+                }`}
+                onClick={() => setBuildMode('aggregate')}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="size-12 bg-cyan-100 rounded flex items-center justify-center">
+                    <BarChart2 className="size-6 text-cyan-600" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2">{t('buildModes.aggregate.title')}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t('buildModes.aggregate.description')}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Badge variant="secondary">{t('buildModes.aggregate.badges.sum')}</Badge>
+                      <Badge variant="secondary">{t('buildModes.aggregate.badges.count')}</Badge>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card
+                className={`p-6 cursor-pointer transition-all ${
+                  buildMode === 'complex'
+                    ? 'border-primary border-2 bg-primary/5'
+                    : 'hover:border-primary/50'
+                }`}
+                onClick={() => setBuildMode('complex')}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="size-12 bg-red-100 rounded flex items-center justify-center">
+                    <Layers2 className="size-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2">{t('buildModes.complex.title')}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t('buildModes.complex.description')}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Badge variant="secondary">{t('buildModes.complex.badges.workflow')}</Badge>
+                      <Badge variant="secondary">{t('buildModes.complex.badges.logic')}</Badge>
+                    </div>
+                  </div>
+                </div>
+              </Card>
             </div>
           </div>
         )}
@@ -1134,6 +1396,77 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
 
         {currentStep === 3 && buildMode !== 'batch' && (
           <div className="space-y-6">
+            {buildMode === 'aggregate' && (
+              <div className="space-y-4 border-b pb-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">{t('aggregate.steps.3.name')}</h3>
+                </div>
+                <Card className="p-6">
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      <Label>{t('aggregate.groupBy.label')}</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {fields.slice(0, 5).map((field, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className="cursor-pointer hover:bg-primary/10"
+                          >
+                            {field.name}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{t('aggregate.groupBy.hint')}</p>
+                    </div>
+                    <div className="space-y-3">
+                      <Label>{t('aggregate.functions.label')}</Label>
+                      <div className="grid grid-cols-4 gap-3">
+                        {['SUM', 'COUNT', 'AVG', 'MAX', 'MIN'].map((func) => (
+                          <Card key={func} className="p-3 text-center cursor-pointer hover:bg-primary/5">
+                            <span className="font-mono text-sm">{func}</span>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <Label>{t('aggregate.having.label')}</Label>
+                      <Input placeholder={t('aggregate.having.placeholder')} />
+                      <p className="text-xs text-muted-foreground">{t('aggregate.having.hint')}</p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {buildMode === 'complex' && (
+              <div className="space-y-4 border-b pb-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">{t('complex.steps.3.name')}</h3>
+                </div>
+                <Card className="p-6">
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      <Label>{t('complex.workflow.label')}</Label>
+                      <div className="border rounded-lg p-4 min-h-[120px]">
+                        <p className="text-sm text-muted-foreground">{t('complex.workflow.placeholder')}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <Label>{t('complex.steps.4.name')}</Label>
+                      <div className="space-y-2">
+                        {['Step 1: Data Filter', 'Step 2: Transformation', 'Step 3: Aggregation'].map((step, index) => (
+                          <Card key={index} className="p-3 flex items-center gap-3">
+                            <span className="size-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">{index + 1}</span>
+                            <span className="text-sm">{step}</span>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
+
             {buildMode === 'join' && (
               <div className="space-y-4 border-b pb-6">
                 <div className="flex items-center justify-between">
@@ -1192,6 +1525,7 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                                   <SelectItem value="INNER">{t('join.fields.joinType.options.inner')}</SelectItem>
                                   <SelectItem value="LEFT">{t('join.fields.joinType.options.left')}</SelectItem>
                                   <SelectItem value="RIGHT">{t('join.fields.joinType.options.right')}</SelectItem>
+                                  <SelectItem value="FULL">FULL JOIN (全连接)</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -1257,7 +1591,7 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
               >
                 <div style={{ height: `${flatList.length * 50}px` }} className="relative">
                   {/* Sticky Header */}
-                  <div className="sticky top-0 z-20 bg-muted border-b grid grid-cols-[200px_120px_100px_100px_80px_80px_80px_1fr] font-medium text-sm shadow-sm">
+                  <div className="sticky top-0 z-20 bg-muted border-b grid grid-cols-[200px_120px_100px_100px_80px_80px_80px_1fr_40px] font-medium text-sm shadow-sm">
                     <div className="p-3 pl-4">Field Name</div>
                     <div className="p-3">Source</div>
                     <div className="p-3">Alias</div>
@@ -1266,6 +1600,7 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                     <div className="p-3 text-center">Required</div>
                     <div className="p-3 text-center">Return</div>
                     <div className="p-3">Default</div>
+                    <div className="p-3 text-center"></div>
                   </div>
 
                   {(() => {
@@ -1305,7 +1640,7 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                         visibleItems.push(
                           <div 
                             key={field.name}
-                            className={`absolute left-0 right-0 grid grid-cols-[200px_120px_100px_100px_80px_80px_80px_1fr] items-center border-b hover:bg-muted/10 transition-colors ${field.isPinned ? 'bg-blue-50/50' : ''}`}
+                            className={`absolute left-0 right-0 grid grid-cols-[200px_120px_100px_100px_80px_80px_80px_1fr_40px] items-center border-b hover:bg-muted/10 transition-colors ${field.isPinned ? 'bg-blue-50/50' : ''}`}
                             style={{ top: `${top}px`, height: `${ROW_HEIGHT}px` }}
                           >
                             <div className="p-3 pl-4 flex items-center gap-2 overflow-hidden">
@@ -1388,6 +1723,13 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                                 }}
                               />
                             </div>
+                            <div className="p-3 text-center">
+                              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => {
+                                setEditingFieldRule(index);
+                              }}>
+                                <Settings className="size-4 text-muted-foreground" />
+                              </Button>
+                            </div>
                           </div>
                         );
                       }
@@ -1426,7 +1768,109 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
           </div>
         )}
 
-        {currentStep === 4 && buildMode !== 'batch' && (
+        {currentStep === 4 && buildMode === 'join' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2>{t('join.steps.4.name')}</h2>
+              <Badge className="bg-purple-100 text-purple-700">
+                {t('join.steps.4.desc')}
+              </Badge>
+            </div>
+
+            <Card className="p-6">
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label>{t('join.optimization.indexStrategy')}</Label>
+                    <Select defaultValue="auto">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">{t('join.optimization.indexStrategy.auto')}</SelectItem>
+                        <SelectItem value="force_index">{t('join.optimization.indexStrategy.forceIndex')}</SelectItem>
+                        <SelectItem value="no_index">{t('join.optimization.indexStrategy.noIndex')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">{t('join.optimization.indexStrategy.hint')}</p>
+                  </div>
+                  <div className="space-y-3">
+                    <Label>{t('join.optimization.joinOrder')}</Label>
+                    <Select defaultValue="auto">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">{t('join.optimization.joinOrder.auto')}</SelectItem>
+                        <SelectItem value="straight">{t('join.optimization.joinOrder.straight')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">{t('join.optimization.joinOrder.hint')}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>{t('join.optimization.subquery')}</Label>
+                  <Textarea
+                    className="font-mono min-h-[100px]"
+                    placeholder={t('join.optimization.subquery.placeholder')}
+                  />
+                  <p className="text-xs text-muted-foreground">{t('join.optimization.subquery.hint')}</p>
+                </div>
+
+                <div className="flex items-center justify-between pt-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    {t('join.optimization.tables', { count: joinTables.length + 1 })}
+                  </div>
+                  <Button variant="outline" size="sm">
+                    {t('join.optimization.analyze')}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 bg-muted/50">
+              <div className="flex items-center gap-2 text-sm">
+                <Info className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">{t('join.optimization.tip')}</span>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {currentStep === 6 && buildMode === 'complex' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2>{t('complex.steps.6.name')}</h2>
+              <Badge className="bg-red-100 text-red-700">
+                {t('complex.steps.6.desc')}
+              </Badge>
+            </div>
+            <Card className="p-6">
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label>{t('complex.cache.label', 'Cache Strategy')}</Label>
+                  <Select defaultValue="none">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Cache</SelectItem>
+                      <SelectItem value="redis">Redis Cache</SelectItem>
+                      <SelectItem value="memory">Local Memory</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">{t('complex.cache.hint')}</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {((currentStep === 4 && !['batch', 'join', 'aggregate', 'complex'].includes(buildMode)) || 
+          (currentStep === 5 && buildMode === 'join') ||
+          (currentStep === 6 && buildMode === 'aggregate') ||
+          (currentStep === 7 && buildMode === 'complex')) && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2>{t('sql.title')}</h2>
@@ -1464,6 +1908,96 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
           </div>
         )}
 
+        {currentStep === 4 && buildMode === 'aggregate' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2>{t('aggregate.steps.4.name')}</h2>
+              <Badge className="bg-cyan-100 text-cyan-700">
+                {t('aggregate.steps.4.desc')}
+              </Badge>
+            </div>
+            <Card className="p-6">
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label>{t('aggregate.outputFormat.label')}</Label>
+                    <Select defaultValue="json">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="json">JSON</SelectItem>
+                        <SelectItem value="xml">XML</SelectItem>
+                        <SelectItem value="csv">CSV</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-3">
+                    <Label>{t('aggregate.dateFormat.label')}</Label>
+                    <Select defaultValue="iso">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="iso">ISO 8601</SelectItem>
+                        <SelectItem value="unix">Unix Timestamp</SelectItem>
+                        <SelectItem value="custom">Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <Label>{t('aggregate.nesting.label')}</Label>
+                  <Input placeholder={t('aggregate.nesting.placeholder')} />
+                  <p className="text-xs text-muted-foreground">{t('aggregate.nesting.hint')}</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {currentStep === 4 && buildMode === 'complex' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2>{t('complex.steps.4.name')}</h2>
+              <Badge className="bg-red-100 text-red-700">
+                {t('complex.steps.4.desc')}
+              </Badge>
+            </div>
+            <Card className="p-6">
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label>{t('complex.transaction.label')}</Label>
+                  <div className="flex items-center gap-3">
+                    <Checkbox id="enableTransaction" />
+                    <Label htmlFor="enableTransaction" className="text-sm font-normal">
+                      {t('complex.transaction.enable')}
+                    </Label>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <Label>{t('complex.errorHandling.label')}</Label>
+                  <Select defaultValue="rollback">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="rollback">Rollback on Error</SelectItem>
+                      <SelectItem value="continue">Continue on Error</SelectItem>
+                      <SelectItem value="stop">Stop Execution</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-3">
+                  <Label>{t('complex.timeout.label')}</Label>
+                  <Input type="number" defaultValue="30" className="w-32" />
+                  <p className="text-xs text-muted-foreground">{t('complex.timeout.hint')}</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {currentStep === 4 && buildMode === 'batch' && (
           <div className="space-y-4">
             <h2>{t('batch.sql.title')}</h2>
@@ -1494,7 +2028,69 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
           </div>
         )}
 
-        {currentStep === 5 && (
+        {currentStep === 5 && buildMode === 'aggregate' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2>{t('aggregate.steps.5.name')}</h2>
+              <Badge className="bg-cyan-100 text-cyan-700">
+                {t('aggregate.steps.5.desc')}
+              </Badge>
+            </div>
+            <Card className="p-6">
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label>{t('aggregate.having.label')}</Label>
+                  <Textarea 
+                    placeholder={t('aggregate.having.placeholder')}
+                    className="font-mono min-h-[100px]"
+                  />
+                  <p className="text-xs text-muted-foreground">{t('aggregate.having.hint')}</p>
+                </div>
+                <div className="space-y-3">
+                  <Label>{t('aggregate.conditions.label', 'Additional Conditions')}</Label>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 p-3 border rounded">
+                      <Badge variant="outline">user_id</Badge>
+                      <span className="text-sm">=</span>
+                      <Badge variant="outline">10</Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {currentStep === 5 && buildMode === 'complex' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2>{t('complex.steps.5.name')}</h2>
+              <Badge className="bg-red-100 text-red-700">
+                {t('complex.steps.5.desc')}
+              </Badge>
+            </div>
+            <Card className="p-6">
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label>{t('complex.codeEditor.label', 'Business Logic Code')}</Label>
+                  <Textarea 
+                    className="font-mono min-h-[300px]"
+                    placeholder={`// Example business logic\nconst result = await processData(input);\nreturn transform(result);`}
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" size="sm">{t('complex.codeEditor.validate', 'Validate')}</Button>
+                  <Button variant="outline" size="sm">{t('complex.codeEditor.format', 'Format')}</Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {((currentStep === 5 && !['batch', 'join', 'aggregate', 'complex'].includes(buildMode)) ||
+          (currentStep === 6 && buildMode === 'join') ||
+          (currentStep === 7 && buildMode === 'aggregate') ||
+          (currentStep === 8 && buildMode === 'complex')) && (
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-6">
               <div className="space-y-2">
@@ -1539,6 +2135,25 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
                     <SelectItem value="none">{t('publish.authType.options.none')}</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">参数验证与解析框架</label>
+                <Select
+                  value={apiConfig.paramValidation}
+                  onValueChange={(value) => setApiConfig({ ...apiConfig, paramValidation: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="joi">Joi (推荐)</SelectItem>
+                    <SelectItem value="zod">Zod</SelectItem>
+                    <SelectItem value="yup">Yup</SelectItem>
+                    <SelectItem value="custom">自定义框架</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">选择用于解析和验证 HTTP 请求参数的底层框架。</p>
               </div>
 
               <div className="space-y-2">
@@ -1727,14 +2342,17 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
           <ArrowLeft className="size-4 mr-2" />
           {t('nav.prev')}
         </Button>
-        {currentStep < 5 ? (
+        {currentStep < getMaxSteps() ? (
           <Button
             onClick={() => {
               if (!validateStep(currentStep)) {
                 return;
               }
-              const nextStep = Math.min(5, currentStep + 1);
-              if (nextStep === 4) {
+              const nextStep = Math.min(getMaxSteps(), currentStep + 1);
+              if ((nextStep === 4 && !['batch', 'join', 'aggregate', 'complex'].includes(buildMode)) ||
+                  (nextStep === 5 && buildMode === 'join') ||
+                  (nextStep === 6 && buildMode === 'aggregate') ||
+                  (nextStep === 7 && buildMode === 'complex')) {
                 generateSQL();
               }
               setCurrentStep(nextStep);
@@ -1752,6 +2370,111 @@ LIMIT 20;  -- ${t('sql.comments.maxComputePagination')}`;
           </Button>
         )}
       </div>
+
+      {/* Field Validation Dialog */}
+      <Dialog open={editingFieldRule !== null} onOpenChange={(open) => !open && setEditingFieldRule(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>参数高级配置 ({editingFieldRule !== null ? fields[editingFieldRule]?.name : ''})</DialogTitle>
+          </DialogHeader>
+          {editingFieldRule !== null && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>数据格式转换规则</Label>
+                <Select 
+                  value={fields[editingFieldRule]?.validation?.format || 'none'}
+                  onValueChange={(val) => {
+                    const newFields = [...fields];
+                    newFields[editingFieldRule].validation = {
+                      ...newFields[editingFieldRule].validation,
+                      format: val
+                    };
+                    setFields(newFields);
+                  }}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">无</SelectItem>
+                    <SelectItem value="trim">去除前后空格 (Trim)</SelectItem>
+                    <SelectItem value="lowercase">转小写</SelectItem>
+                    <SelectItem value="uppercase">转大写</SelectItem>
+                    <SelectItem value="date_iso">转换为 ISO 8601 日期</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>校验规则 - 最小长度/最小值</Label>
+                <Input 
+                  type="number" 
+                  placeholder="例如：0"
+                  value={fields[editingFieldRule]?.validation?.minLength || ''}
+                  onChange={(e) => {
+                    const newFields = [...fields];
+                    newFields[editingFieldRule].validation = {
+                      ...newFields[editingFieldRule].validation,
+                      minLength: e.target.value ? Number(e.target.value) : undefined
+                    };
+                    setFields(newFields);
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>校验规则 - 最大长度/最大值</Label>
+                <Input 
+                  type="number" 
+                  placeholder="例如：255" 
+                  value={fields[editingFieldRule]?.validation?.maxLength || ''}
+                  onChange={(e) => {
+                    const newFields = [...fields];
+                    newFields[editingFieldRule].validation = {
+                      ...newFields[editingFieldRule].validation,
+                      maxLength: e.target.value ? Number(e.target.value) : undefined
+                    };
+                    setFields(newFields);
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>正则校验</Label>
+                <Input 
+                  placeholder="例如：^[a-zA-Z0-9_]+$" 
+                  value={fields[editingFieldRule]?.validation?.pattern || ''}
+                  onChange={(e) => {
+                    const newFields = [...fields];
+                    newFields[editingFieldRule].validation = {
+                      ...newFields[editingFieldRule].validation,
+                      pattern: e.target.value
+                    };
+                    setFields(newFields);
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>自定义错误提示</Label>
+                <Input 
+                  placeholder="例如：参数格式不正确" 
+                  value={fields[editingFieldRule]?.validation?.errorMessage || ''}
+                  onChange={(e) => {
+                    const newFields = [...fields];
+                    newFields[editingFieldRule].validation = {
+                      ...newFields[editingFieldRule].validation,
+                      errorMessage: e.target.value
+                    };
+                    setFields(newFields);
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setEditingFieldRule(null)}>取消</Button>
+            <Button onClick={() => {
+              toast.success('校验规则已保存');
+              setEditingFieldRule(null);
+            }}>保存</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

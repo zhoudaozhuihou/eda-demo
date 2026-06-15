@@ -150,8 +150,10 @@
     "paramTable": {
       "columns": {
         "name": "Name",
+        "queryName": "Query parameter",
         "type": "Type",
         "required": "Required",
+        "queryRequired": "Required",
         "location": "Location",
         "value": "Value",
         "defaultValue": "Default",
@@ -237,7 +239,9 @@
       "basicInfo": "Basic information",
       "requestPath": "Request path",
       "requestParams": "Request parameters",
+      "queryParams": "Query parameters",
       "responseParams": "Response parameters",
+      "requestExample": "Request example",
       "successResponseExample": "Successful response example",
       "onlineTest": "Online test"
     },
@@ -254,7 +258,13 @@
       "example": "Examples & Test"
     },
     "actions": {
-      "openTestTool": "Open test tool"
+      "openTestTool": "Open test tool",
+      "expandQueryParams": "Show query parameters",
+      "collapseQueryParams": "Hide query parameters"
+    },
+    "testTool": {
+      "title": "Test tool",
+      "requestPreview": "Request preview"
     },
     "dialog": {
       "defaultTitle": "API Docs",
