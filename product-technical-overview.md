@@ -294,21 +294,55 @@ Agent 返回内容不仅包括自然语言回复，还可以包含：
 
 该机制确保标签不是一次性查询，而是具有生命周期和版本的企业数据资产。
 
-## 6. 知识技术
+## 6. 知识管理技术实现
 
-知识模块支持：
+知识管理模块负责把业务制度、产品说明、营销规则、数据字典和分析报告转成可被工作台、标签开发和标签市场复用的结构化知识资产。
 
-- 手工输入知识
-- 上传文档
-- 文档分析
-- 候选标签抽取
-- 实体抽取
-- 关系三元组抽取
-- 文档摘要
-- 从知识发布标签
-- 全局或单文档知识图谱查询
+当前实现采用统一的 `uploaded_documents` 存储模型，无论知识来自手工录入还是文件上传，最终都会沉淀为同一种结构：
 
-知识条目的结构化结果包括：
+- `content_text`：解析后的正文。
+- `summary`：内容摘要。
+- `extracted_entities`：实体数组。
+- `extracted_triples`：关系三元组数组。
+- `extracted_tags`：候选标签数组。
+- `status`：`uploaded`、`analyzing`、`completed`、`failed`。
+
+这种设计让知识条目既可以被知识管理页面浏览，也可以被工作台 Agent 检索，并进一步转成标签市场资产。
+
+## 6.1 知识输入链路
+
+知识管理当前支持两类输入。
+
+第一类是手工录入知识。前端调用 `POST /api/knowledge/analyze`，后端创建 `UploadedDocument`，再调用 OpenAI-compatible 的 `ChatOpenAI` 接口。Prompt 要求模型只返回 JSON，并包含四类结果：
+
+- `summary`：200 字以内摘要。
+- `entities`：实体列表，包含 `name`、`type`、`mentions`。
+- `triples`：关系三元组，包含 `subject`、`predicate`、`object`。
+- `tags`：候选标签，包含 `name`、`category`、`confidence`、`reason`。
+
+第二类是上传文档。前端调用 `POST /api/knowledge/upload`，后端支持 Markdown、TXT、CSV、Excel。文件先落到临时上传目录，再通过 `document_parser` 转成纯文本；用户触发分析后，`tag_discovery_service.analyze_document` 会基于规则和启发式算法抽取标签、实体和关系。
+
+```mermaid
+flowchart LR
+    INPUT["知识输入/文件上传"] --> PARSE["文本解析"]
+    PARSE --> EXTRACT["实体/关系/标签抽取"]
+    EXTRACT --> DOC["uploaded_documents"]
+    DOC --> OKF["OKF/KAG 图结构"]
+    DOC --> TAG["发布到标签市场"]
+    DOC --> AGENT["工作台 Agent 检索"]
+```
+
+## 6.2 实体、关系和标签抽取
+
+手工知识抽取使用 LLM 结构化输出。系统会通过 `_parse_json_from_llm` 兼容普通 JSON 和 Markdown fenced code block，解析成功后写入数据库；解析失败时会保留基础摘要，并将结构化数组置空，避免错误 JSON 污染知识资产。
+
+上传文档抽取当前偏确定性规则，适合 Demo 和离线可复现场景：
+
+- 标签抽取：读取 Markdown 标题、CSV/Excel 表头和高频关键词，生成 `heading`、`column`、`keyword` 类型候选标签。
+- 实体抽取：识别邮箱、URL、手机号、身份证号、日期、金额和英文组织名短语。
+- 关系抽取：匹配 `A 是 B`、`A 包含 B`、`A 属于 B`、`A 需要 B`、`A has B`、`A is B` 等句式，形成主谓宾三元组。
+
+结构化结果示例：
 
 ```json
 {
@@ -337,7 +371,73 @@ Agent 返回内容不仅包括自然语言回复，还可以包含：
 }
 ```
 
-前端可将实体和关系转换为知识图谱节点与边，并支持三维关系图展示。
+生产环境可以在当前接口不变的前提下，把上传文档的规则抽取升级为“规则召回 + LLM 校正 + 人工确认”的组合模式。
+
+## 6.3 OKF 与 KAG 图谱表达
+
+当前系统没有单独部署外部图数据库，而是在 API 层把实体和三元组实时转换为 Open Knowledge Format 风格的 KAG/OKF 图结构。
+
+单文档图谱接口：
+
+```text
+GET /api/knowledge/{doc_id}/kag
+```
+
+全局图谱接口：
+
+```text
+GET /api/knowledge/global/kag
+```
+
+返回结构包括：
+
+- `metadata.format`：固定为 `Open Knowledge Format (OKF)`。
+- `metadata.version`：当前为 `1.0`。
+- `graph.nodes`：由实体生成，字段包含 `id`、`name`、`type`、`properties`。
+- `graph.edges`：由三元组生成，字段包含 `source`、`target`、`relation`、`label`。
+
+全局图谱会聚合全部已完成知识条目，并按实体名称去重；重复实体会累加 `mentions`。如果关系三元组中的主体或客体没有出现在实体列表中，系统会补充一个默认 `concept` 节点，保证图谱边可以完整渲染。
+
+前端 `KnowledgeGraph3D` 组件调用 OKF 接口后，将 `graph.nodes` 转为 3D 节点，将 `graph.edges` 转为 links，并使用 `react-force-graph-3d` 和 Three.js 渲染。节点颜色按实体类型区分，例如 `person`、`org`、`concept`。
+
+## 6.4 知识到标签市场
+
+知识分析完成后，用户可以调用：
+
+```text
+POST /api/knowledge/{doc_id}/generate-tags
+```
+
+系统会读取 `extracted_tags`，最多处理前 10 个候选标签：
+
+1. 根据候选标签的 `category` 查找或创建 `TagCategory`。
+2. 根据 `name + category_id` 判断是否已经存在同名标签。
+3. 对不存在的候选项创建 `TagDefinition`。
+4. 将知识来源和抽取理由写入标签描述。
+
+因此，知识不仅是文档库，也是标签开发的证据来源和标签市场的候选供给来源。
+
+## 6.5 工作台中的知识能力
+
+工作台 Agent 已注册三类知识工具：
+
+- `search_knowledge(query)`：在已完成知识条目中按正文检索，并返回摘要和候选标签。
+- `add_knowledge(title, content)`：在 Chat 中直接新增知识，并触发 LLM 抽取实体、关系和标签。
+- `generate_tags_from_knowledge(knowledge_id)`：把知识条目中的候选标签发布到标签市场。
+
+这使留学场景可以在工作台中完成闭环：
+
+```text
+业务需求输入
+  -> 搜索留学相关知识
+  -> 提取留学产品、监管、客群实体
+  -> 形成关系图谱
+  -> 生成候选标签
+  -> 进入标签开发与发布
+  -> 用标签圈选目标客户
+```
+
+该链路的关键价值是把“自然语言材料”转成“可治理、可发布、可复用”的数据资产。
 
 ## 7. LLM 接入
 
