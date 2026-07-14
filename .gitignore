@@ -16,14 +16,19 @@ Thumbs.db
 # Dependencies
 # ===============
 node_modules/
-
 # ===============
+
 # Build outputs
 # ===============
 dist/
 build/
 coverage/
 
+# ===============
+
+# Build outputs
+# ===============
+docs/
 # ===============
 # Runtime caches
 # ===============
