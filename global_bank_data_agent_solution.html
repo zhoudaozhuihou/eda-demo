@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据部门 ETL 组可落地的 Data Agent 方案</title>
+<style>
+  :root{--bg:#ffffff;--soft:#f7f8fa;--ink:#1f2329;--muted:#646a73;--line:#e5e6eb;--blue:#185fa5;--teal:#0f6e56;--amber:#854f0b;--red:#a32d2d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1120px;margin:0 auto;padding:40px 28px 80px}
+  header{border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:28px}
+  h1{font-size:27px;font-weight:600;margin:0 0 8px;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:14px}
+  .meta{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px}
+  .tag{background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font-size:12px;color:var(--muted)}
+  h2{font-size:20px;font-weight:600;margin:42px 0 14px;padding-left:12px;border-left:4px solid var(--blue)}
+  h3{font-size:16px;font-weight:600;margin:24px 0 8px}
+  p{margin:8px 0}
+  ul,ol{margin:8px 0 8px 22px;padding:0}
+  li{margin:5px 0}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--soft);font-weight:600;white-space:nowrap}
+  tr:nth-child(even) td{background:#fcfcfd}
+  .callout{border-left:4px solid var(--blue);background:#f4f8fd;padding:14px 18px;border-radius:0 8px 8px 0;margin:18px 0}
+  .callout.warn{border-color:var(--amber);background:#fff9ef}
+  .callout.risk{border-color:var(--red);background:#fdf3f3}
+  .callout.ok{border-color:var(--teal);background:#f0faf6}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:16px 0}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .card .k{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .card .v{font-size:18px;font-weight:600;margin-bottom:6px}
+  .card p{font-size:13px;color:var(--muted);margin:0}
+  .small{font-size:12px;color:var(--muted)}
+  code{background:var(--soft);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .arch{width:100%;height:auto;border:1px solid var(--line);border-radius:10px;background:#fff;margin:16px 0}
+  .src{font-size:12px;color:var(--muted);word-break:break-all}
+  .src a{color:var(--blue);text-decoration:none}
+  footer{margin-top:48px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>数据部门 ETL 组可落地的 Data Agent 方案</h1>
+  <div class="sub">范围收窄版：只做 ETL 组拥有数据管道、指标口径与元数据控制权的部分</div>
+  <div class="meta">
+    <span class="tag">2026-11-17</span>
+    <span class="tag">适用：Global Bank 数据部门 ETL 组</span>
+    <span class="tag">交付：能力清单 + 架构 + 数据源方案 + 最小化 MVP + 12 个月路线 + 验收指标 + 银行落地案例</span>
+  </div>
+</header>
+
+<div class="callout ok">
+  <strong>结论</strong>：ETL 组不需要"买一个 Data Agent"。正确做法是把 Agent 嵌进已有的数据链路，交付一个<strong>可信数据服务层</strong>：语义指标层 + 目录血缘 + 质量规则 + 只读数据服务（API/MCP）+ 轻量编排。Agent 只做<strong>读取、解释、生成草稿、提出建议</strong>；所有写入生产管道、指标定义、权限变更的动作都停在 PR 和人工审批。
+</div>
+
+<h2>1. 职责边界：做什么，不做什么</h2>
+<table>
+<thead><tr><th style="width:50%">ETL 组可直接负责</th><th>需要协作或上移，不在本方案</th></tr></thead>
+<tbody>
+<tr>
+<td>
+  <ul>
+    <li>多源数据接入：CDC、批量、文件、API、流式落地</li>
+    <li>清洗、标准化、编码映射、主数据对齐、去重</li>
+    <li>ETL/ELT 开发与调度：SQL、dbt、Spark、Airflow 等</li>
+    <li>指标与语义层：定义、版本、Golden queries、口径解释</li>
+    <li>数据质量：规则、新鲜度、漂移、告警与根因定位</li>
+    <li>元数据、目录、血缘、影响分析、PII 标记建议</li>
+    <li>数据服务化：只读视图、API、受管 MCP server</li>
+    <li>数据资产评测：golden set、回归、答案引用与审计日志</li>
+    <li>内部数据助手：问数、取数、口径、质量、编目、代码草稿</li>
+  </ul>
+</td>
+<td>
+  <ul>
+    <li>核心银行/总账系统的写入与业务操作</li>
+    <li>信贷、风控、反洗钱、客户准入等决策</li>
+    <li>监管报送的最终签署与对外解释</li>
+    <li>全行权限体系、模型风险管理、合规审批</li>
+    <li>客户侧产品、面向客户的 AI 助手</li>
+    <li>跨境数据传输合规判定、模型训练平台与 GPU 基建</li>
+    <li>业务指标"是什么"的最终裁定（业务 owner 决定，ETL 组实现与维护）</li>
+  </ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="callout warn">
+  <strong>边界原因</strong>：ETL 组拥有的是"数据怎么来、怎么算、怎么被找到"，没有业务决策权、风险审批权和监管解释权。因此本版删除了全行级 Agent 控制面、业务自治级别、模型风险治理、监管签署等内容——不是它们不重要，而是它们不属于 ETL 组的交付范围。
+</div>
+
+<h2>2. 技术路线：先做数据服务层，再做 Agent</h2>
+<div class="grid">
+  <div class="card"><div class="k">第一优先</div><div class="v">语义指标层</div><p>dbt MetricFlow / Cube / Wren MDL，Git 版本化，PR 审阅。银行场景纯 NL2SQL 准确率仅 40–60%，加语义层后可达 92–95%。</p></div>
+  <div class="card"><div class="k">第二优先</div><div class="v">目录与血缘</div><p>DataHub 或 OpenMetadata。让 Agent 先找到"被认证的数据"，再谈查询；同时支撑影响分析与口径溯源。</p></div>
+  <div class="card"><div class="k">第三优先</div><div class="v">质量与评测</div><p>质量规则 + 30–100 条真实问题 golden set + 回归门禁。评测不过不上线，这是 ETL 组能自证的价值。</p></div>
+  <div class="card"><div class="k">第四优先</div><div class="v">只读服务化</div><p>数仓原生 MCP（UC / Snowflake / Fabric）或自建只读 API，按域拆分、白名单、限流、全链路日志。</p></div>
+</div>
+<p>平台层面不强制选型：<strong>行里已有 Databricks 就用 Unity Catalog + Genie，已有 Snowflake 就用 Cortex/Semantic Views，已有 Fabric 就用 Fabric Data Agent</strong>。但语义定义、golden queries、质量规则和评测集必须放在 ETL 组可版本化、可迁移的资产里，不能只存在于某个厂商产品中。</p>
+
+<h2>3. ETL 组视角架构</h2>
+<svg class="arch" viewBox="0 0 680 545" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>数据部门 ETL 组可落地的 Data Agent 架构</title>
+  <desc>在 ETL 组可控范围内，从内部用户、内部 Agent、语义服务层、质量与元数据到数据处理与多源接入的五层架构，下方列出需要协作或上移的事项。</desc>
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+  <g font-family="-apple-system,Segoe UI,PingFang SC,sans-serif">
+    <rect x="28" y="24" width="624" height="424" rx="20" fill="#f7f8fa" stroke="#d3d1c7" stroke-width="0.5"/>
+    <text x="48" y="49" font-size="13" font-weight="500" fill="#444441">数据部门 ETL 组可控范围</text>
+    <rect x="56" y="62" width="568" height="56" rx="8" fill="#e6f1fb" stroke="#378add" stroke-width="0.5"/>
+    <text x="340" y="82" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#0c447c">内部用户入口</text>
+    <text x="340" y="101" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185fa5">数据分析师 · ETL 开发 · 数据产品 owner（只读、可看 SQL 与引用）</text>
+    <path d="M340 118 L340 134" fill="none" stroke="#888780" stroke-width="1.2" marker-end="url(#ar)"/>
+    <rect x="56" y="136" width="568" height="56" rx="8" fill="#eeedfe" stroke="#7f77dd" stroke-width="0.5"/>
+    <text x="340" y="156" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#26215c">ETL 内部 Agent（轻编排）</text>
+    <text x="340" y="175" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#534ab7">问数 · 口径解释 · 质量巡检 · 血缘问答 · 接入/代码草稿</text>
+    <path d="M340 192 L340 208" fill="none" stroke="#888780" stroke-width="1.2" marker-end="url(#ar)"/>
+    <rect x="56" y="210" width="568" height="56" rx="8" fill="#e1f5ee" stroke="#1d9e75" stroke-width="0.5"/>
+    <text x="340" y="230" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#04342c">语义与数据服务层</text>
+    <text x="340" y="249" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#0f6e56">NL → DSL/MQL → SQL · Golden queries · 只读 API / MCP</text>
+    <path d="M340 266 L340 282" fill="none" stroke="#888780" stroke-width="1.2" marker-end="url(#ar)"/>
+    <rect x="56" y="284" width="568" height="56" rx="8" fill="#faeeda" stroke="#ba7517" stroke-width="0.5"/>
+    <text x="340" y="304" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#412402">质量、元数据与评测</text>
+    <text x="340" y="323" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#854f0b">规则引擎 · 血缘 · 目录认证 · PII 标记 · 回归集 · 审计日志</text>
+    <path d="M340 340 L340 356" fill="none" stroke="#888780" stroke-width="1.2" marker-end="url(#ar)"/>
+    <rect x="56" y="358" width="568" height="56" rx="8" fill="#f1efea" stroke="#888780" stroke-width="0.5"/>
+    <text x="340" y="378" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#2c2c2a">数据处理与多源接入</text>
+    <text x="340" y="397" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5f5e5a">CDC · 批/流 · 清洗 · 标准化 · 编码映射 · 主数据对齐</text>
+    <rect x="28" y="466" width="624" height="58" rx="10" fill="#fdf3f3" stroke="#f7c1c1" stroke-width="0.5" stroke-dasharray="4 3"/>
+    <text x="48" y="488" font-size="12" font-weight="500" fill="#791f1f">需要协作或上移（不在本方案）</text>
+    <text x="48" y="508" font-size="12" fill="#a32d2d">核心系统写入 · 业务决策 · 监管签署 · 模型风险 · 权限体系 · 跨境合规判定</text>
+  </g>
+</svg>
+<div class="callout">
+  <strong>控制点</strong>：Agent 不直接修改生产管道、指标定义或权限。接入助手和代码助手只产出草稿，走 Git PR + 人工 review；问数与口径助手只读；所有调用记录用户、查询、引用和结果；评测集不通过则阻断上线。
+</div>
+
+<h2>4. ETL 组可交付的能力清单</h2>
+<table>
+<thead><tr><th>优先级</th><th>能力</th><th>ETL 组做什么</th><th>输出与控制点</th><th>自证指标</th></tr></thead>
+<tbody>
+<tr><td>P0</td><td>只读智能问数</td><td>基于语义层与认证数据集生成查询，展示 SQL 与来源</td><td>答案 + SQL + 引用；只读角色、限行、超时；歧义时追问或弃答</td><td>golden set 准确率 ≥90%，引用完整率 100%</td></tr>
+<tr><td>P0</td><td>指标口径助手</td><td>维护指标定义、版本、负责人、来源与同义词</td><td>口径卡片 + 变更历史；定义改动走 PR 审批</td><td>口径冲突工单下降、变更同步时效</td></tr>
+<tr><td>P0</td><td>数据质量巡检 Agent</td><td>检查新鲜度、空值、唯一性、分布漂移、任务失败</td><td>告警 + 沿血缘的根因候选；不自动修数据</td><td>问题发现提前量、MTTR、重复问题下降</td></tr>
+<tr><td>P0</td><td>血缘与影响分析问答</td><td>用元数据图回答"这张表谁在用、改了影响什么"</td><td>影响清单 + 责任人 + 建议检查项</td><td>变更评审覆盖率</td></tr>
+<tr><td>P1</td><td>数据接入助手</td><td>为新源生成字段映射、清洗规则与校验规则草稿</td><td>草稿 PR，ETL 开发 review 后合入</td><td>映射草稿采纳率、接入工时下降</td></tr>
+<tr><td>P1</td><td>ETL 代码助手</td><td>生成/优化 SQL、dbt model、测试用例</td><td>仅提交 PR；CI 跑测试与血缘检查</td><td>PR 通过率、构建失败率</td></tr>
+<tr><td>P1</td><td>数据资产编目助手</td><td>生成表/字段描述、业务分类、PII 标记建议</td><td>建议需数据 owner 确认后生效</td><td>认证资产覆盖率、描述完整率</td></tr>
+<tr><td>P1</td><td>口径一致性回归</td><td>语义或管道变更后自动跑 golden queries 回归</td><td>回归不过阻断发布</td><td>回归通过率、口径漂移拦截数</td></tr>
+<tr><td>P1</td><td>全生命周期辅助（开发/测试/验证/发布）</td><td>Agent 贯穿需求、开发、测试、验证、发布、运维，覆盖 API/文件/代码/数据资产，人逐阶段审核（详见第 8 章）</td><td>只出草稿与检查结果；设计评审 + 测试齐套 + 验证回归 + 多方签字；Agent 无发布权/外发权</td><td>草稿采纳率、上线前缺陷拦截数、发布回滚率、口径漂移 0</td></tr>
+<tr><td>P2</td><td>主动洞察草稿</td><td>指标波动沿维度与血缘拆解，生成根因假设</td><td>推送给分析师确认，不对外发布</td><td>分析师采纳率</td></tr>
+<tr><td>P2</td><td>跨域联邦查询助手</td><td>按域授权，查询下推到源，不搬数据</td><td>域隔离、结果按最严权限裁剪</td><td>跨域请求响应时长、越权测试 0 通过</td></tr>
+</tbody>
+</table>
+
+<h2>5. 数据源与处理方案（ETL 组可操作）</h2>
+<table>
+<thead><tr><th>源类型</th><th>接入方式</th><th>清洗与标准化</th><th>质量规则</th><th>服务化</th><th>边界</th></tr></thead>
+<tbody>
+<tr><td>核心银行 / 总账（DB2、Oracle）</td><td>CDC 到只读副本，或受控批量导出</td><td>账户/交易/客户统一编码，日期与币种标准化</td><td>主键唯一、余额勾稽、增量完整性</td><td>只读视图 + 语义模型</td><td>禁止直连生产库高频查询，禁止写入</td></tr>
+<tr><td>ERP / SAP</td><td>ODP / CDC / OData</td><td>科目表、成本中心、组织层级映射</td><td>期间关账状态、汇率版本一致性</td><td>认证数据集 + 指标层</td><td>财务口径需业务 owner 确认</td></tr>
+<tr><td>CRM / 客服</td><td>API + CDC</td><td>客户 360 统一 ID、同意状态归一</td><td>PII 完整性、状态有效性</td><td>脱敏视图 + 目录标签</td><td>ETL 组只做脱敏实现，权限策略由治理方定</td></tr>
+<tr><td>支付 / 交易流</td><td>Kafka / Flink 落到 Delta/Iceberg</td><td>交易状态机、冲正与退款规则</td><td>乱序、重复、延迟、对账差异</td><td>近实时只读视图</td><td>不接触卡数据明文，PCI 分段由平台团队负责</td></tr>
+<tr><td>文件 / Excel / CSV</td><td>对象存储 + 自动 schema 推断与校验</td><td>编码、日期、千分位、列名映射</td><td>模板符合度、必填项、异常行隔离</td><td>临时数据集（带有效期）</td><td>不把临时文件直接暴露为认证口径</td></tr>
+<tr><td>文档 / 半结构化</td><td>OCR → 分块 → 嵌入 → 带 ACL 的向量索引</td><td>元数据抽取、版本与有效期归一</td><td>解析成功率、切片质量、引用可回溯</td><td>检索服务（带源文档权限）</td><td>只做检索与引用，不做业务结论</td></tr>
+<tr><td>外部行情 / 监管数据 / API</td><td>API 拉取 + 落地区域化对象存储</td><td>时区、交易日历、复权、汇率口径</td><td>许可证与再分发限制、更新时效</td><td>受控只读服务</td><td>跨境与许可合规由法务/治理判定</td></tr>
+</tbody>
+</table>
+
+<h2>6. 最小化 MVP：8 周跑通一个可信闭环</h2>
+<div class="callout ok">
+  <strong>MVP 定义</strong>：6–8 周内，在<strong>一个数据域</strong>上让<strong>一个只读问数 Agent</strong>跑通"提问 → 口径解析 → 生成 SQL → 返回带引用的结果 → 审计留痕"的完整闭环，用 Golden set 证明准确率 ≥90%，并用 ETL 组取数工时的实际下降证明价值。MVP 的目标不是"能答很多"，而是"答的每一个数都可信"。
+</div>
+
+<h3>六个"一"——把范围压到最小</h3>
+<table>
+<thead><tr><th>维度</th><th>MVP 只做</th><th>刻意不做</th></tr></thead>
+<tbody>
+<tr><td>场景</td><td>内部智能问数（ETL 组 + 1–2 个种子业务方），只回答"数是多少 / 口径是什么"</td><td>全行问答、主动洞察、预测</td></tr>
+<tr><td>数据域</td><td>1 个质量最好、问得最多的域（存款 / 客户 / 交易 选其一）</td><td>第二个域、跨源 JOIN、联邦查询</td></tr>
+<tr><td>指标</td><td>10–20 个高频指标，业务 owner 签字冻结口径</td><td>全量指标、动态口径</td></tr>
+<tr><td>技术栈</td><td>复用行内已有平台 + 自有 Git 语义资产，零新增采购</td><td>新买产品、新建控制面</td></tr>
+<tr><td>链路</td><td>NL → DSL/MQL → SQL → 只读查询 → 带引用回答；身份穿透 + 审计</td><td>写生产管道、改指标定义（只出 PR 草稿）</td></tr>
+<tr><td>度量</td><td>Golden set 准确率、引用完整率、越权零通过、取数工时下降</td><td>业务 ROI、厂商 Demo 准确率</td></tr>
+</tbody>
+</table>
+
+<h3>8 周节奏与卡点</h3>
+<table>
+<thead><tr><th>周</th><th>动作</th><th>产出</th><th>卡点（不过不进下一周）</th></tr></thead>
+<tbody>
+<tr><td>W1</td><td>选域 + 冻结口径；收集 30 条真实高频问题</td><td>指标口径签字版、Golden set v1</td><td>业务 owner 不签字 → 不启动</td></tr>
+<tr><td>W2–3</td><td>建最小语义层（指标 + 同义词 + 口径）+ 接入目录血缘</td><td>语义层 v1、血缘可查</td><td>口径未冻结 → 不建层</td></tr>
+<tr><td>W4–5</td><td>只读数据服务 + NL2DSL2SQL Agent + 引用 + 审计 + 权限继承</td><td>可运行的问数 Agent</td><td>必须用最终用户身份，禁用服务账号兜底</td></tr>
+<tr><td>W6</td><td>评测门禁：Golden set 跑分 + 权限测试用例</td><td>评测报告</td><td>准确率 &lt;90% 或越权 &gt;0 → 阻断发布</td></tr>
+<tr><td>W7–8</td><td>种子用户试点（ETL 组 + 1 业务方）+ 工时度量</td><td>试点报告、二期建议</td><td>引用不完整 → 回炉</td></tr>
+</tbody>
+</table>
+
+<div class="callout ok">
+  <strong>Go / No-Go 门槛（全部满足才算 MVP 成功）</strong>
+  <ul>
+    <li>准确率 ≥90%（30 条 Golden set，真实历史问题，不用厂商 Demo 题）</li>
+    <li>引用完整率 100%（每个数字可点回表 / 字段 / SQL）</li>
+    <li>越权零通过（权限测试用例全绿）</li>
+    <li>取数工时可测下降（试点前后对比，ETL 组每周少加的班）</li>
+    <li>8 周内完成、零新增采购、不碰核心系统写入</li>
+  </ul>
+</div>
+<div class="callout warn">
+  <strong>NMVP 反模式</strong>：宁可窄而准，不要宽而错。不接第二个数据源、不做跨源融合、不写生产管道、不做主动洞察、不建全行控制面、不追厂商 Demo 的准确率。MVP 之后，把"一个域"的模式复制到第二、第三域，再补质量巡检与编目助手，最后才谈融合与联邦。
+</div>
+
+<h2>7. DeepSeek Harness / Super-agent 如何融入</h2>
+<div class="callout">
+  <strong>先定性</strong>：这两者都<strong>不是</strong> Data Agent 产品，而是 Agent 的<strong>运行时框架</strong>（Harness）和架在其上的<strong>主动式多任务架构</strong>（Super-agent）。它们落在架构图的"ETL 内部 Agent（轻编排）"与"审计/评测"位置，<strong>不替换语义层、不替换数据服务层、不碰生产管道</strong>。价值是补齐我们原来最薄的一环：可插拔的运行时 + 天然的全链路轨迹；风险是它们的权限模型完全达不到银行生产要求，必须按第 7.3 节红线改造。
+</div>
+
+<h3>7.1 它们分别是什么</h3>
+<table>
+<thead><tr><th>项目</th><th>本质</th><th>关键事实（官方/一手）</th></tr></thead>
+<tbody>
+<tr><td><strong>DeepSeek Harness</strong>（dsh）</td><td>开源 Agent 运行时框架，<code>Model + Harness = Agent</code></td><td>2026 年 8 月以 MIT 开源，基于 Cordis 的"everything is a plugin"：模型、工具、技能、会话、沙箱、存储、循环、调度、UI 全是插件，配置即可换。模型无关（OpenAI/Anthropic/Google/Kimi 等 40+ 提供方）。四种模式：Standard / Code / Minimal（两工具极简，用于模型 benchmark）/ Creator。<strong>全链路 append-only session log</strong>：系统提示、推理、工具调用与结果、Subagent 调度、每次上下文注入都记录，可 resume / fork / search / replay。11-17 已支持"按 agent 按需加载 MCP 工具"。<strong>仍处 developer preview，官方预告"必有破坏性变更"。</strong></td></tr>
+<tr><td><strong>Super-agent</strong>（dsh-superagent）</td><td>装在 Harness 上的主动式架构原型，源自 coding agent 场景</td><td>10-31 发布的架构探索 + 开源原型（MIT）。Router 常驻接收 GitHub / 飞书 / 邮件消息并分派；Worker 独立上下文、按工单并行、可再调 Subagent；Watchdog 盯死循环。事件驱动 + 两级过滤（规则先筛、模型再判）；投机执行=后台静默复现、确认才提交否则沉默；存算分离（执行云端、状态入库、本地轻量 daemon）。授权用 Policy/Mandate：白名单、explicit/inferred/not-admitted 三级、accept mode off/observe/auto、策略版本与恢复前重校验。<strong>原型仅一次 commit，README 自述"研究代码、非官方产品、可能与内部版本不同、部分设计未实现"。</strong></td></tr>
+</tbody>
+</table>
+
+<h3>7.2 能力映射：接到我们设计的哪一层</h3>
+<table>
+<thead><tr><th>Harness / Super-agent 能力</th><th>落到本方案的位置</th><th>怎么用</th><th>必须注意</th></tr></thead>
+<tbody>
+<tr><td>一切皆插件 + 按 agent 按需加载 MCP</td><td>语义服务层 / 只读数据服务</td><td>把 Golden queries、指标语义、质量规则、只读数据源封成内部插件/agent；按域只加载该域白名单工具，在运行时收敛权限</td><td>插件加载≠权限判定。行/列权限仍要在语义层与网关侧独立强制，不能因"没加载工具"就当没权限</td></tr>
+<tr><td>Append-only 轨迹 + Trajectory 视图</td><td>审计 / 引用能力</td><td>把每次问数的 意图 → DSL → SQL → 结果+引用 固化成可 replay 事件流，直接支撑 MVP 的"引用完整率 100%、全链路留痕"</td><td>其 session log 不是 WORM。银行需把关键轨迹同步到自己的不可变审计存储，不能只留在 Harness 内</td></tr>
+<tr><td>Minimal 模式 / benchmark 定位</td><td>质量与评测门禁</td><td>用极简两工具模式跑 Golden set 回归，排除"换个 harness 排名就变"的干扰；评测不过阻断发布（W6 卡点）</td><td>已有研究显示换 Harness 会改变模型排名，测试环境必须固化 harness 版本与配置</td></tr>
+<tr><td>模型无关 + 多提供方</td><td>编排 / 模型路由</td><td>按域、辖区、敏感度切换模型，契合银行"模型无关、数据不出域"；本地部署 + 行内模型网关</td><td>托管 provider 端点有数据出境风险，优先自托管；模型清单与 SR 11-7 分类仍由行里维护</td></tr>
+<tr><td>Router/Worker + 事件驱动 + 投机执行</td><td>质量巡检 / 主动洞察草稿</td><td>把质量规则失败、血缘变更、CI 结果做成 trigger；"静默复现并修复"= 后台先复现、确认后才提草稿 PR，正好符合"草稿走 PR + 人工审批"</td><td>它源自"issue → PR"的编码场景，触发器要改造成数据域事件；只出草稿，不自动合并</td></tr>
+<tr><td>授权 Policy / observe→auto / 策略版本</td><td>渐进式自治 L0–L3</td><td>先在 observe 模式跑一段看 Decision 记录，再决定是否 auto；策略版本变更可重校验在途工单——这是很好的"自治级别可审计"证据</td><td>accept mode 默认 observe；任何 auto 都要先在隔离环境验证，且保留人工停止开关</td></tr>
+<tr><td>Watchdog / 后台任务 30 分钟上限</td><td>熔断 / 资源治理</td><td>防死循环、防跑飞，对应我们的 kill switch、限流与超时预算</td><td>超时只 kill shell job，Subagent 可继续；要自己做端到端超时与成本上限</td></tr>
+</tbody>
+</table>
+
+<h3>7.3 红线：官方明确写的、必须写进设计的限制</h3>
+<div class="callout risk">
+  <ul>
+    <li><strong>官方 safety notice 原文</strong>：experimental、<strong>未经安全审计、不得视为安全或生产就绪</strong>；可执行模型生成的代码、加载第三方插件、访问网络/进程/凭证/文件。<span class="small">→ 不作生产控制面；只做 ETL 内部工具或隔离环境 PoC，锁定版本。</span></li>
+    <li><strong>Worker 以操作者 OS 账户执行命令且无逐条审批</strong>；原型文档自述包装脚本"不是安全边界"，可用绝对路径绕过。<span class="small">→ 绝不给生产写权限；专用低权账号 + 容器/VM + 只读库凭证；写动作只在隔离 Git 副本，PR 由人合并。</span></li>
+    <li><strong>沙箱、审批提示、权限控制不保证隔离</strong>，官方要求"不要作为不受信任工作负载的唯一安全控制"。<span class="small">→ 纵深防御；权限在语义层/网关独立强制，沿用原设计，不因用了 Harness 而削弱。</span></li>
+    <li><strong>插件生态庞大但质量参差</strong>（社区数月产出数千插件）。<span class="small">→ 内部插件仓库 + 白名单 + 代码审查；禁止运行时自动安装未审插件。</span></li>
+    <li><strong>Super-agent 是单 commit 研究原型</strong>，与内部版本不一致、部分设计未实现、可能有 bug。<span class="small">→ 只读其架构思想，不当产品上线；Router/投机执行/授权策略可借鉴，实现要自研或加固。</span></li>
+    <li><strong>developer preview 预告破坏性变更</strong>。<span class="small">→ 锁 commit、离线评估升级、CI 回归；不把核心链路绑在 unpinned 版本上。</span></li>
+  </ul>
+</div>
+
+<h3>7.4 在 MVP 里的用法（分阶段）</h3>
+<div class="grid">
+  <div class="card"><div class="k">MVP W4–5 可用</div><p>用 dsh 作内部 Agent 的运行时骨架（替代自研轻编排），把只读数据源与语义层做成 MCP/插件；用它的 session log 出审计轨迹。保持运行时可替换——模型无关与插件化正是为了不被绑定。</p></div>
+  <div class="card"><div class="k">P1 之后 PoC</div><p>借鉴 Super-agent 的"事件触发 + 静默复现 + 只提草稿"做质量巡检 Agent，放在隔离环境，人工合并 PR；先 observe 再谈 auto。</p></div>
+  <div class="card"><div class="k">明确不上线</div><p>客户面问答、任何写生产管道的动作、任何监管报表链路。这些仍走行内既有审批与治理体系。</p></div>
+</div>
+<div class="callout ok">
+  <strong>一句话结论</strong>：Harness 值得作为 ETL 内部 Agent 的运行时候选——它的插件化和全链路轨迹正好命中 MVP 的审计与可插拔需求；Super-agent 值得抄架构思想——主动式巡检与渐进授权。但两者当前都不具备直接进银行生产的资格。<strong>用它们的工程红利，不用它们的权限模型；权限判定始终留在我们自己的语义层与网关。</strong>
+</div>
+<p class="src">来源：<a href="https://www.deepseek.com/harness/en">DeepSeek Harness 官方页</a> · <a href="https://github.com/deepseek-ai/deepseek-harness">GitHub 仓库</a> · <a href="https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/master/SAFETY.md">SAFETY.md</a> · <a href="https://github.com/deepseek-ai/dsh-superagent-prototype">Super-agent 原型仓库</a> · <a href="https://raw.githubusercontent.com/deepseek-ai/dsh-superagent-prototype/master/docs/002-authorization.md">授权文档</a> · <a href="https://raw.githubusercontent.com/deepseek-ai/dsh-superagent-prototype/master/docs/003-execution.md">执行文档</a> · <a href="https://www.huanqiu.com/article/4TqWPXmdLEt">环球网 10-31 报道</a></p>
+
+<h2>8. Data Agent 辅助数据开发全生命周期：开发 · 测试 · 验证 · 发布</h2>
+<div class="callout ok">
+  <strong>定位</strong>：API 辅助构建只是 Data Agent 的一个应用。真正要做的是让 Data Agent 贯穿数据开发的<strong>全生命周期</strong>——需求、开发、测试、验证、发布、运维，覆盖 <strong>API / 文件 / 代码 / 数据资产</strong> 各类产物。全程是<strong>副驾驶（copilot）而非自动驾驶</strong>：Agent 出草稿、跑检查、备产物；人做设计决策、测试签字、发布批准。<strong>任何产物从草稿到生效，都必须经过人工审核，Agent 自己不能让任何东西上线。</strong>
+</div>
+
+<h3>8.1 全生命周期职责矩阵</h3>
+<table>
+<thead><tr><th>阶段</th><th>Agent 辅助（草稿/检查）</th><th>人做决策（审核/签字）</th><th>产物与门禁</th></tr></thead>
+<tbody>
+<tr><td><strong>需求与设计</strong></td><td>把业务问题映射到认证指标，列歧义与缺口径点；生成方案与接口/文件结构草稿</td><td>业务 owner 确认口径与范围；数据/应用 owner 审设计</td><td>需求说明 + 口径确认单 + 设计评审记录</td></tr>
+<tr><td><strong>开发</strong></td><td>生成/补全 SQL、dbt model、转换逻辑、字段映射、清洗规则；解释既有代码、提示复用资产</td><td>ETL 开发 review 逻辑与性能，确认经语义层取数</td><td>代码 PR（review 通过才可合并）</td></tr>
+<tr><td><strong>测试</strong></td><td>生成单元测试、数据质量测试、契约测试、边界与反例；预跑并给出失败定位</td><td>QA / 数据 owner 审测试覆盖度，签字确认</td><td>测试报告（覆盖率签字）</td></tr>
+<tr><td><strong>验证</strong></td><td>跑 Golden set 回归、口径一致性、血缘影响、越权用例、结果对账</td><td>数据 owner 确认口径无漂移；安全确认越权 0 通过</td><td>验证报告（不过阻断发布）</td></tr>
+<tr><td><strong>发布</strong></td><td>打包发布物（API / 文件 / 代码）、生成变更说明与回滚脚本——<strong>不执行发布</strong></td><td>变更委员会 / 网关管理员 / 文件接收方审批</td><td>变更单 + 多方发布审批</td></tr>
+<tr><td><strong>运维</strong></td><td>质量巡检、漂移检测、根因候选、事故复盘草稿；被动响应，不自动修复</td><td>值班 owner 确认处置与复盘结论</td><td>告警 + 复盘报告</td></tr>
+</tbody>
+</table>
+
+<h3>8.2 产物矩阵：API 与文件各有发布通道</h3>
+<table>
+<thead><tr><th>产物类型</th><th>具体内容</th><th>发布通道</th><th>审核方</th></tr></thead>
+<tbody>
+<tr><td><strong>API</strong></td><td>OpenAPI / GraphQL schema / MCP 工具定义、只读查询接口</td><td>API 网关注册</td><td>数据 owner + 安全 + 应用 owner 三方签字</td></tr>
+<tr><td><strong>文件（file）</strong></td><td>数据文件（CSV/Parquet）、报送文件、导出物、数据字典</td><td>受控文件服务 / 对象存储 / 报送系统</td><td>数据 owner + 合规（报送类）</td></tr>
+<tr><td><strong>代码</strong></td><td>SQL、dbt model、管道脚本、质量规则</td><td>Git PR + CI</td><td>ETL 开发 + DBA</td></tr>
+<tr><td><strong>数据资产</strong></td><td>认证数据集、指标、预聚合、编目条目</td><td>语义层 / 数据目录发布</td><td>数据 owner 认证</td></tr>
+</tbody>
+</table>
+<p class="small">文件类产物尤其要纳入同一套门禁：Agent 可以生成和校验文件，但文件的对外传递、报送或落盘到受控区必须由人与流程批准，防止"文件成为治理体系外的第二个出口"。</p>
+
+<h3>8.3 六道审核门禁：贯穿所有阶段与产物</h3>
+<p><code>需求 → 语义模型定位 → Agent 出草稿 → 设计评审 → 开发 PR → 测试齐套 → 验证回归 → 多方签字 → 发布（API/文件/代码）→ 运行时只读+限流+审计</code></p>
+<div class="grid">
+  <div class="card"><div class="k">门禁 1 · 口径锚定</div><p>任何阶段先定位到认证指标；找不到就拒绝生成，绝不"临时拼一个"。</p></div>
+  <div class="card"><div class="k">门禁 2 · 设计评审</div><p>结构、命名、兼容性由数据 + 应用 owner 评审，未签字不进开发。</p></div>
+  <div class="card"><div class="k">门禁 3 · 测试齐套</div><p>单元/质量/契约/越权测试全绿，覆盖率由 QA/安全签字，不过不可合并。</p></div>
+  <div class="card"><div class="k">门禁 4 · 验证回归</div><p>Golden set 与口径一致性通过、血缘影响已评估、越权 0 通过，否则阻断发布。</p></div>
+  <div class="card"><div class="k">门禁 5 · 发布审批</div><p>变更单 + 多方签字齐全才可发布；<strong>Agent 不持有发布凭据、网关注册权与文件外发权</strong>。</p></div>
+  <div class="card"><div class="k">门禁 6 · 全程留痕</div><p>生成轨迹与审核记录一并归档，可回答"这个产物怎么来的、谁审的、依据是什么"。</p></div>
+</div>
+<div class="callout warn">
+  <strong>最危险的失效模式：把"辅助"做成"绕过"。</strong> 如果 Agent 生成的代码直连物理表、文件绕过受控通道外发、或跳过验证直接发布，就等于在治理体系外开了新入口。硬性要求：代码经语义层取数、文件走受控通道、验证全绿、签字齐全才可发布。
+</div>
+
+<h3>8.4 不同产物的审核强度</h3>
+<table>
+<thead><tr><th>层</th><th>Agent 辅助产物</th><th>审核方</th><th>发布方式</th></tr></thead>
+<tbody>
+<tr><td>L1 查询草稿</td><td>NL → DSL/MQL → SQL，展示中间表示供自查</td><td>使用者自查；限定认证指标，歧义追问或弃答</td><td>会话内只读执行，不沉淀</td></tr>
+<tr><td>L2 模板 / 规则</td><td>参数化模板、映射规则、质量规则草稿</td><td>数据 owner 审口径与 Golden set 命中</td><td>PR + 审批后入库</td></tr>
+<tr><td>L3 API / 文件定义</td><td>OpenAPI / GraphQL / MCP 定义、文件结构与报送格式草稿</td><td>数据 owner + 安全 + 应用 owner / 合规签字</td><td>PR + 测试齐套 + 网关/文件服务注册</td></tr>
+<tr><td>L4 性能构件</td><td>预聚合 / 物化视图 / 索引建议</td><td>DBA 审成本与刷新策略；不自动物化</td><td>变更窗口上线</td></tr>
+</tbody>
+</table>
+
+<h3>8.5 Harness / Super-agent 作为全生命周期运行时</h3>
+<ul>
+  <li><strong>Harness 作统一构建运行时</strong>：Creator mode 定制不同阶段的预设（builder / tester / validator / packager）；append-only 轨迹记录每次生成与检查的提示、上下文与产物，让审核人看到"这个草稿是怎么来的"。</li>
+  <li><strong>Super-agent 借鉴"静默草稿 + 事件触发"</strong>：草稿本地验证通过才提 PR/变更单，失败不打扰人；测试失败、质量告警、CI 结果可作为触发。<strong>授权保持 observe + 人工 accept，不启用 auto 模式</strong>——审核权始终在人。</li>
+  <li><strong>权限边界不变</strong>：Harness Worker 以操作者账户无审批执行，因此全生命周期 Agent 只运行在隔离环境、低权账号、只写 Git 工作副本；发布凭据、网关注册权与文件外发权不交给 Agent。</li>
+</ul>
+<div class="callout ok">
+  <strong>一句话</strong>：Agent 覆盖开发到发布每一步的草稿与检查，把重复劳动做到 80 分并附上证据；人负责设计与发布的最后 20 分判断与签字。<strong>审核不是补一道手续，而是贯穿全生命周期的主干</strong>——任何产物能否生效，只取决于人是否批准。
+</div>
+<p class="src">来源：<a href="https://cube.dev/">Cube（模型暴露 REST/GraphQL/MCP、Core Data APIs、多租户与行级权限，注：厂商自述）</a> · <a href="https://engineering.zooz.com/@oskartammekivi/best-ai-semantic-layer-tools-2026-connecting-data-models-to-llms-555e9af89545">AI 语义层工具对比</a> · <a href="https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/master/SAFETY.md">DeepSeek Harness SAFETY.md</a> · <a href="https://raw.githubusercontent.com/deepseek-ai/dsh-superagent-prototype/master/docs/002-authorization.md">Super-agent 授权文档（accept mode）</a></p>
+
+<h2>9. 12 个月落地路线（ETL 组主导）</h2>
+<table>
+<thead><tr><th>阶段</th><th>时间</th><th>范围</th><th>交付物</th><th>外部依赖（需申请/协作）</th></tr></thead>
+<tbody>
+<tr><td>P0 打地基</td><td>0–2 月</td><td>选 1 个数据域，10–20 个核心指标</td><td>语义层 v1、30 条 golden queries、目录血缘接入、质量规则基线</td><td>业务 owner 确认指标定义；数据源只读权限</td></tr>
+<tr><td>P1 只读上线</td><td>2–5 月</td><td>问数、口径助手、质量巡检</td><td>SQL 可见、引用完整、人工复核流程、评测门禁、审计日志</td><td>内部用户试点与反馈；安全团队 review</td></tr>
+<tr><td>P2 融入管道</td><td>5–9 月</td><td>全生命周期辅助：接入/代码/编目助手 + 测试生成 + 验证回归 + 发布打包（API/文件/代码，L1–L3 草稿）</td><td>PR 审批流、设计评审、测试齐套、验证回归、多方签字、CI 回归、观测看板</td><td>代码仓库与 CI 权限；安全团队 review；数据/应用 owner、合规（报送文件）与网关管理员签字</td></tr>
+<tr><td>P3 扩展</td><td>9–12 月</td><td>主动洞察草稿、跨域联邦查询</td><td>域隔离查询、采纳率分析、二期域扩展方案</td><td>跨域授权由治理方审批；不接管业务决策</td></tr>
+</tbody>
+</table>
+<div class="callout warn">
+  <strong>不要做的事</strong>：不要在 P0/P1 追求"全行问答机器人"；不要先接核心系统写入；不要在指标口径未确认前上线问数；不要把厂商 Demo 的准确率写进验收标准。
+</div>
+
+<h2>10. 工具选型（ ETL 组可采购或自托管）</h2>
+<table>
+<thead><tr><th>组件</th><th>开源 / 自托管</th><th>商业 / 平台原生</th><th>选型要点</th></tr></thead>
+<tbody>
+<tr><td>语义指标层</td><td>dbt MetricFlow、Cube、Wren MDL（定义进 Git，可 PR 审阅）</td><td>Snowflake Semantic Views、Databricks Ontology、Power BI 语义模型</td><td>定义必须可导出、可版本化；不要只存在于厂商 UI 中</td></tr>
+<tr><td>目录与血缘</td><td>DataHub（能力强、运维重）、OpenMetadata（部署轻）</td><td>Collibra、Alation、Purview、Unity Catalog</td><td>中小规模先 OpenMetadata；已有 Kafka 与大规模实体选 DataHub</td></tr>
+<tr><td>轻量编排</td><td>LangGraph（图状态机、checkpoint、HITL）、Microsoft Agent Framework（MIT）</td><td>平台自带 Agent 编排（Genie、Cortex Agents、Copilot Studio）</td><td>只编排 ETL 组内流程；不承载全行策略控制面</td></tr>
+<tr><td>工具协议</td><td>自建只读 API + MCP registry（按域拆分）</td><td>Databricks / Snowflake / BigQuery / Fabric 托管 MCP</td><td>默认只读、白名单、限流；禁用已归档且有注入漏洞的官方 PostgreSQL/SQLite MCP server</td></tr>
+<tr><td>评测与观测</td><td>Langfuse + Ragas / DeepEval / promptfoo + 自建 golden set</td><td>LangSmith Enterprise、平台自带审计</td><td>指标含执行准确率、弃答率、幻觉列率、引用完整率</td></tr>
+<tr><td>质量与调度</td><td>Great Expectations / dbt tests + Airflow / Dagster</td><td>平台自带质量与编排</td><td>质量结果要能被 Agent 读取，作为回答可信度的一部分</td></tr>
+</tbody>
+</table>
+<p class="small">许可证与生命周期风险：Vanna 仓库已于 2026-03-29 归档、Dataherald 自 2024-07 停滞，不选；Dify Cloud 不保证 EU 数据驻留、CrewAI SaaS 条款允许用客户数据训练、n8n 为 fair-code 非 OSI 开源，若使用须自托管并经法务确认。</p>
+
+<h2>11. 验收指标（ETL 组能自己证明的）</h2>
+<div class="grid">
+  <div class="card"><div class="k">准确性</div><div class="v">≥ 90%</div><p>golden set 执行准确率；歧义问题弃答/追问率单独统计。</p></div>
+  <div class="card"><div class="k">可追溯</div><div class="v">100%</div><p>回答附带 SQL、数据来源与语义版本；越权测试零通过。</p></div>
+  <div class="card"><div class="k">效率</div><div class="v">可量化</div><p>接入映射工时、ETL 代码 PR 返工率、口径咨询工单量下降。</p></div>
+  <div class="card"><div class="k">质量</div><div class="v">提前发现</div><p>数据问题发现提前量、MTTR 缩短、重复问题下降。</p></div>
+</div>
+<p>不承诺业务 ROI（如营收提升、风险损失下降）——这些由业务与风控团队衡量。ETL 组的成功标准是：<strong>数据可找到、口径可解释、结果可复现、变更可回归、问题可定位</strong>。</p>
+
+<h2>12. 银行落地案例与收益证据（截至 2026-11）</h2>
+<div class="callout ok">
+  <strong>先看结论</strong>：真正落到生产的银行 Data Agent，几乎都不是"大模型直连数据库裸问"，而是<strong>语义层 / 指标平台 + 多智能体分工 + 人工审核</strong>——和我们前面收敛的路线一致。公开的收益高度集中在三个可量化维度：<strong>时效</strong>（小时/天级 → 秒/分钟级）、<strong>质量</strong>（准确率或采纳率 92%–100%）、<strong>人力</strong>（工时、人年、重复取数工作量显著下降）。纯 NL2SQL 在银行复杂口径下没有找到生产级收益证据。
+</div>
+
+<h3>12.1 智能问数 / 数据服务类（最贴近 ETL 组，优先参考）</h3>
+<table>
+<thead><tr><th>机构 / 时间</th><th>系统与技术路线</th><th>公开量化收益</th><th>证据等级</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>邮储银行</strong><br>《金融电子化》2026-02</td>
+  <td>自研"智能问数"数据智能体系统。五层架构（感知交互 / 中枢认知 / 智能体协同 / 数据与工具 / 应用集成），"智能路由 + 双路并行"；<strong>通过标准化接口与基座模型解耦，可接 DeepSeek、Qwen</strong>；自定义工具链做复杂运算（不靠大模型算数），分步推理可追溯；行级实时安全校验 + 全量日志</td>
+  <td>覆盖<strong>零售+对公 2000+ 指标</strong>；累计服务 <strong>2.2 万+ 用户</strong>、接收查询 <strong>1.5 万+ 次</strong>；<strong>结果采纳率稳定 95%+</strong>；数据量从百万级压到千级；危险操作 <strong>100% 实时拦截</strong>；已从试点推广至全国分支</td>
+  <td><strong>高</strong>（行业期刊署名文章，数据管理部总经理署名）</td>
+</tr>
+<tr>
+  <td><strong>中信百信银行 × 数势科技</strong><br>2025（金猿案例）</td>
+  <td>"1+2+N"：1 个智能指标中台 + SwiftMetrics + SwiftAgent + N 场景。<strong>NL2Semantics 五段式</strong>（自然语言→语义理解→指标关联→SQL 检索→结果验证），不走裸 NL2SQL；Multi-Agent 协同（任务规划 / 数据理解 / 结论生成）；指标×用户×维度细粒度权限；行级权限 + 列级脱敏</td>
+  <td>查询响应<strong>小时级 → 秒级</strong>；指标开发<strong>天级 → 小时级</strong>；业务人员<strong>80% 指标自助创建</strong>；P95 查询 &lt; 2 秒；移动端语音 95% 准确率；语义定义完备前提下查询结果 100% 准确；技术路线获信通院认证</td>
+  <td><strong>中</strong>（厂商投递参评案例，效果数据为厂商口径）</td>
+</tr>
+<tr>
+  <td><strong>常熟农商银行 × 枫清科技</strong><br>2026</td>
+  <td>"常银数据助理"智能指标问数。NLP + 金融知识图谱，构建 <strong>1200+ 标准化指标</strong>统一语义知识库；全流程"意图识别→指标分析→数据查询→归因分析→报告生成"</td>
+  <td>应答准确率<strong>稳定 92%+</strong>；<strong>年节约人力成本超 111 万元</strong>；折线图等可视化 <strong>800ms 内</strong>生成并自动标注异常点与根因</td>
+  <td><strong>中</strong>（厂商项目稿，数字具体但未披露测量方法）</td>
+</tr>
+<tr>
+  <td><strong>浦银理财"智浦小鹿"</strong><br>2025（金猿案例）</td>
+  <td>员工数字助理：知识库检索 + NL2SQL/NL2API + RPA 流程自动化，答案溯源</td>
+  <td>知识查询<strong>30 分钟 → 1.5 秒</strong>、准确率 60%→<strong>92%</strong>，累计 10 万+次、省约 5 万小时（≈25 人年）；数据分析响应 ≤10 秒、全年 2 万+次；业务申报 40 分钟→5 分钟；<strong>年省人工超 150 万元</strong>，失误率 8%→0.5%</td>
+  <td><strong>中</strong>（厂商投递参评案例）</td>
+</tr>
+<tr>
+  <td><strong>某头部城商行 × 英途汇骏</strong><br>2026</td>
+  <td>Denodo 数据虚拟化 + 统一语义层 + IntoMind 智能体；逻辑数据编织，不搬原始数据</td>
+  <td>自然语言查询<strong>30 秒内返回</strong>；分析师<strong>重复取数工作量减少 65%</strong>；Demo 中加统一语义层后智能问数准确率宣称达 100%（注意：厂商 Demo 口径）</td>
+  <td><strong>低—中</strong>（厂商营销稿，机构匿名、Demo 数据）</td>
+</tr>
+<tr>
+  <td><strong>上海银行</strong><br>2025</td>
+  <td>语义增强技术 NL2Semantics，与指标平台 / 标签平台融合，槽填充生成标准化 API 调用；自研计算引擎做预加工</td>
+  <td>查询速度较传统模式<strong>提升 5–20 倍</strong>，降低幻觉（与百信同一技术范式）</td>
+  <td><strong>低—中</strong>（二手案例集转述）</td>
+</tr>
+</tbody>
+</table>
+
+<h3>12.2 全行级 AI 数据产出（背景大盘，不是 ETL 组的承诺指标）</h3>
+<p>这组数字说明"为什么会突然需要 ETL 组做数据服务化"：智能体铺到上千场景后，每一次回答背后都是一次或多次取数，数据层从 T+1 跑批变成了秒级高频请求。ETL 组交付的语义层与只读服务，正是承接这波调用的地基。</p>
+<table>
+<thead><tr><th>机构</th><th>公开披露（2026 半年报 / 三季报 / 业绩会）</th></tr></thead>
+<tbody>
+<tr><td><strong>招商银行</strong></td><td>大模型应用累计 <strong>1500+ 场景</strong>（半年报 1386）；日均 Token <strong>800 亿</strong>（2 月 260 亿 → 5 月 330 亿 → 9 月 800 亿）；AI 贡献 <strong>1388 万小时等效人工工时</strong>；金葵花客户经理人均有效触客 +14.65%、客均成交金额 +35.82%；测算 AI 贡献比 1:13.5 → <strong>1:9</strong>，成本收入比约 20%。管理层明确：智能化不一定直接体现为财报收益，需先融入流程再传导。</td></tr>
+<tr><td><strong>工商银行</strong></td><td>"工银智涌"落地 <strong>600+ 场景</strong>、集成十余款模型并二次训练；金融市场<strong>智能询价交易占比突破 96%</strong>、审核效率为原来的 <strong>5 倍</strong>；建成 6000+ 卡自主词元工厂，日均 Token 600 亿；私行方案生成 5 天 → 3 小时。</td></tr>
+<tr><td><strong>建设银行</strong></td><td>生成式 AI 覆盖 <strong>600+ 场景</strong>；客户经理助理"帮得"月活 4 万+、累计交互近 9000 万次；<strong>使用成效较好的客户经理，管户 AUM 新增比全行平均高 57 个百分点</strong>（"差在数据更全更准、口径一致"，非模型差异）；普惠全流程 2–3 天 → 3 小时。</td></tr>
+<tr><td><strong>邮储银行</strong></td><td><strong>370+ 场景</strong>、接入 90+ 行内系统、日均调用 600 万次、日均 Token 超百亿；尽职调查效率 +50%；对公智能展业助手辅助授信 2000+ 户、近 3100 亿元。</td></tr>
+<tr><td><strong>中国银行 / 平安 / 兴业</strong></td><td>中行智能化助手 <strong>2200+</strong>、自动化覆盖 3800+ 场景；平安日均 Token 217 亿、场景 500+；兴业日均 Token 100 亿、日均调用近 500 万次。</td></tr>
+</tbody>
+</table>
+
+<h3>12.3 海外案例（多为匿名或咨询机构口径，看区间不看绝对值）</h3>
+<table>
+<thead><tr><th>案例</th><th>做法</th><th>收益</th><th>证据等级</th></tr></thead>
+<tbody>
+<tr><td><strong>Deutsche Bank · DB Lumina</strong>（2024–25）</td><td>Google Cloud Vertex AI + Gemini + Discovery Engine；研报 / SEC 文件 RAG，回答带行内引用，Azure AD 认证与审计日志</td><td>约 <strong>5000 名分析师</strong>使用；每份研报最多省 <strong>2 小时</strong>，财报模板省 30–45 分钟；文档处理准确率 97%、耗时 -40%；债券敞口分析缩至 5 分钟</td><td>中—高（行业案例库）</td></tr>
+<tr><td><strong>APAC 大型银行 × Amdocs</strong>（AWS GenAI）</td><td>LLM + MLOps 管道，自动抽取、校验、综合财务文档</td><td>运营成本 <strong>-90%</strong>、生产力 <strong>52 倍</strong>；分析师转向高价值判断</td><td>低—中（二手转述，机构未披露）</td></tr>
+<tr><td><strong>欧洲银行 KYC / AML 尽调</strong>（BAOSS，匿名）</td><td>LangGraph + 混合 RAG（向量+图+SQL）+ 本地 Llama-3.1-70B，0.3% 越权尝试自动升级人工</td><td>开户 14.2 天 → <strong>3.1 天（-78%）</strong>；AML 误报 28%→6%（-79%）；单位成本 €48→€11；<strong>ROI 3.8 倍 / 5.2 个月</strong></td><td>低（咨询公司匿名案例）</td></tr>
+<tr><td><strong>欧洲资管监管报告 Agent</strong>（COREP/FINREP，匿名）</td><td>CrewAI 多智能体 + SQL RAG over Data Vault + DPM 映射图 + MCP 工具，确定性校验后人工签字</td><td>报表周期 3 周 → <strong>2.5 天（-88%）</strong>；会计差异 2.1%→0.04%；分析师工时 -94%；<strong>ROI 5.1 倍 / 3 个月</strong>；生成完整审计轨迹供 ECB 检查</td><td>低（咨询公司匿名案例）</td></tr>
+<tr><td><strong>中型银行湖仓优化 + AI</strong>（匿名）</td><td>Databricks SQL + Unity Catalog，Iceberg 分区，dbt/SQLMesh CI/CD，<strong>语义层经 MCP 暴露给 GPT-4o</strong></td><td>查询 47 分钟 → <strong>1.8 分钟（-96%）</strong>；年成本 -60%；并发 35 → 500+；9 个月迁移、零停机。结论："AI 不是替代分析师，而是拿走 80% 的 SQL 杂活"</td><td>低（咨询公司匿名案例）</td></tr>
+<tr><td><strong>跨国集团司库实时分析</strong>（匿名）</td><td>Kafka → Flink → Druid，<strong>Cube.dev 语义层经 MCP 暴露给 AutoGen</strong>，单一协议访问多源</td><td>数据到看板 18 小时 → <strong>4 分钟</strong>；78% 日内决策自动化；年减少滑点约 €190 万；使用者采纳率 94%</td><td>低（咨询公司匿名案例）</td></tr>
+</tbody>
+</table>
+
+<h3>12.4 从案例里能读出的四条硬经验</h3>
+<div class="grid">
+  <div class="card"><div class="k">经验一 · 语义层是前提，不是点缀</div><p>百信、邮储、常熟、城商行、DB、司库案例不约而同先建指标 / 语义层。邮储明确"用自定义工具链而非大模型完成复杂运算"；百信明确"解耦大模型创造性与指标平台确定性"。<strong>没有语义层的准确率数字，基本都停留在 Demo。</strong></p></div>
+  <div class="card"><div class="k">经验二 · 收益集中在三个维度</div><p>时效：小时/天 → 秒/分钟；质量：准确率或采纳率 92%–100%；人力：工时、人年、重复取数工作量下降 65%–94%。<strong>几乎没人承诺业务 ROI</strong>——招行、工行都公开说量化 AI 产出仍是业界难题。</p></div>
+  <div class="card"><div class="k">经验三 · 模型可插拔是标配</div><p>邮储标准化接口接 DeepSeek/Qwen；工行集成十余款模型二次训练；DB 用 Gemini、欧洲案例用本地 Llama/Qwen。<strong>把模型放在可替换的位置</strong>，与前面"Harness 运行时可替换"的判断一致。</p></div>
+  <div class="card"><div class="k">经验四 · 审计与人工签字从不省</div><p>邮储全量日志 + 危险操作 100% 拦截；DB 行内引用；欧洲监管报告 Agent 生成 prompt→SQL→映射→校验→XBRL 全链轨迹供 ECB 检查。<strong>越接近监管场景，越靠审计轨迹而非模型能力取信。</strong></p></div>
+</div>
+<div class="callout warn">
+  <strong>怎么用这组数字（别用错）</strong>：这些是各家自行披露或厂商口径，统计口径不统一（"采纳率""准确率""等效工时"含义不同），部分来自匿名案例或 Demo。<strong>可以作为"可行性证明"和验收目标的参照区间，不能作为我们的承诺值。</strong>报告第 11 章把 MVP 目标定在准确率 ≥90%、引用完整率 100%、越权零通过——正好对标业界 92%–95% 的成熟区间，且只承诺 ETL 组能自证的部分。
+</div>
+<p class="src">来源：<a href="http://mp.weixin.qq.com/s?__biz=MjM5MzA3MzAzOQ==&mid=2655597037&idx=1&sn=f83b51c7b367485699e8760c59f8edd0">邮储银行《智能问数》· 金融电子化 2026-02</a> · <a href="http://mp.weixin.qq.com/s?__biz=Mzg3MDgzNTkzMQ==&mid=2247490277&idx=1&sn=b8701dfabffba6ba0161db85dfb2c83f">中信百信银行 Data Agent 智能指标项目 · 金猿案例 2025</a> · <a href="https://m.sinotf.com/News/index/id/379183.html">常熟农商银行 AI 问数（中国贸易金融网）</a> · <a href="https://datayuan.blogchina.com/889147557.html">浦银理财"智浦小鹿" · 金猿案例</a> · <a href="http://mp.weixin.qq.com/s?__biz=MzY0MDM1NjMwOA==&mid=2247484714&idx=1&sn=44dea1b3c76a2b1ff33be61a52c50ec1">上市银行 AI 数据与统一语义层</a> · <a href="https://finance.sina.com.cn/wm/2026-11-03/doc-inixnitq9853335.shtml">招行 2026 三季报业绩会（21 世纪经济报道）</a> · <a href="https://www.sgpjbg.com.cn/searchtag/26749253.html">六大行 AI 场景量化披露汇总</a> · <a href="https://aiforbanking.org/case-studies/apac-bank-achieves-90-cost-reduction-and-52x-productivity-gains-automating-financial-data-analysis-with-genai">APAC bank / Amdocs 案例</a> · <a href="https://www.baoss.es/en/social-innovation-in-the-financial-sector">BAOSS 金融 Agent 生产案例与 ROI</a> · <a href="https://www.baoss.es/en/practical-applications-with-big-data-analytics">BAOSS 数据分析 / MCP 案例</a> · <a href="https://aiforbanking.org/case-studies/deutsche-bank-cuts-research-report-time-by-up-to-2-hours-with-db-lumina-ai-agent">Deutsche Bank DB Lumina 案例</a></p>
+
+<h2>13. 语义层怎么在银行落地：实现蓝图</h2>
+<div class="callout ok">
+  <strong>一句话定位</strong>：语义层不是"给表加中文注释"，而是把<strong>口径、关系、权限、时间属性</strong>从大模型提示词和散落的 SQL 里抽出来，变成一份<strong>可版本化、可编译、可审计的契约</strong>。ETL 组真正要交付的是这份契约 + 把它编译成查询的引擎；大模型只负责把用户问题映射到这里面已经定义好的东西。
+</div>
+
+<h3>13.1 语义层要实现的东西：四层契约</h3>
+<table>
+<thead><tr><th>层</th><th>定义什么</th><th>银行里为什么必须有</th><th>落地产物</th></tr></thead>
+<tbody>
+<tr><td><strong>① 逻辑模型层</strong></td><td>业务可见的表 / 视图、列、显式 JOIN 关系；未暴露的列对查询方<strong>物理不可见</strong></td><td>核心、信贷、理财系统表结构混乱且文档残缺；不收口就等着 Agent 猜字段、猜 join</td><td>models / relationships 定义文件，写入 Git</td></tr>
+<tr><td><strong>② 指标定义层</strong></td><td>原子指标（贷款余额、交易笔数）→ 派生指标（加限定条件）→ 复合指标（不良率、净息差）；维度、同义词、业务描述</td><td>同一"余额"在核心与信贷口径不同；一处定义、全局复用才不会"数出多门"</td><td>metrics / cubes 定义 + 指标字典 + 责任人字段</td></tr>
+<tr><td><strong>③ 权限与治理层</strong></td><td>行级过滤（RLS）、列级脱敏（CLS）、指标×用户×维度授权、PII 标记、认证状态</td><td>财富岗只看自己客户、投研岗不看明细；权限没下沉到语义层就过不了合规</td><td>securityContext 规则 + 目录认证 + 审计日志</td></tr>
+<tr><td><strong>④ 服务暴露层</strong></td><td>把上述契约编译为受治理的查询接口：SQL / REST / GraphQL / MCP</td><td>让问数 Agent 和自建 API 走同一个入口，避免治理体系外开新口子</td><td>语义引擎 + 只读网关 + Golden queries</td></tr>
+</tbody>
+</table>
+<p>关键机制：<strong>大模型生成的是"语义查询"（WrenSQL / MQL），不是物理 SQL</strong>。引擎先按语义模型做校验、解析模型引用、注入计算字段，再转译成目标库方言后执行。WrenAI 的公开实现里，这一步是 dry-run 校验（DataFusion LogicalPlan + 类型检查），能拦下大量本来会打到数据库才暴露的错误。这正是"NL → DSL/MQL → SQL"两段式的工程含义。</p>
+
+<h3>13.2 银行特有的口径难题：必须在语义层显式处理</h3>
+<p>这些是通用语义层产品不会替你决定、但银行绕不开的部分。每一项都要在定义文件里写清楚，不能指望大模型临场发挥。</p>
+<div class="grid">
+  <div class="card"><div class="k">时点 vs 时期</div><p><strong>余额类</strong>（存款余额、贷款余额）是时点量，取期末值，<strong>跨期求和是错的</strong>；<strong>发生额类</strong>（利息收入、交易金额）才是区间求和。指标必须带"时间属性"标签，否则 Agent 会把 12 个月的余额 SUM 成天文数字。</p></div>
+  <div class="card"><div class="k">多币种折算</div><p>原币 / 折算币两套口径要分别定义；汇率来源（央行中间价 / 行内牌价）、折算日期（交易日 / 期末日）、是否重述都要固化。不能让每次问答现挑汇率。</p></div>
+  <div class="card"><div class="k">机构层级与历史归属</div><p>网点撤并、分行改革后，历史数据归到新机构还是旧机构？机构树要有<strong>生效区间</strong>（SCD），否则同比环比会对不上，追溯时无法还原当时口径。</p></div>
+  <div class="card"><div class="k">监管口径版本</div><p>EAST、1104、客户风险等监管字段与经营分析同源但口径不同。做法是<strong>公共指标全局唯一 + 监管专用指标保留版本</strong>，版本可追溯、口径调整后可回溯刷新历史报表。</p></div>
+  <div class="card"><div class="k">多源日期对齐</div><p>核心、信贷、理财的数据日期常不对齐。邮储的"意图诊断模块"专门解决这个行业共性难题——语义层要记录每个数据源的可用日期与更新频率，问数时自动选齐口径。</p></div>
+  <div class="card"><div class="k">客户与关联方口径</div><p>单一客户 / 集团客户 / 关联方三种合并口径必须有独立指标定义和权限边界，避免把集团风险敞口误答成单户敞口。</p></div>
+</div>
+
+<h3>13.3 一个最小的定义示例</h3>
+<p>下面是 Wren MDL 风格的定义片段（用一个文件表达语义契约；Cube 的 cube 定义、dbt 的 semantic model 是同一思路）。重点是看清楚<strong>口径、关系、时间属性、权限分别写在哪里</strong>——而不是让大模型每次重新推导。</p>
+<pre style="background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px;overflow:auto;font-size:12px;line-height:1.6"><code># models/deposit/metadata.yml — 逻辑模型：只暴露必要列
+name: deposit_daily
+table_reference: { schema: dw, table: dws_deposit_daily }
+primary_key: acct_day_id
+columns:
+  - name: biz_date
+    type: DATE
+  - name: balance_cny
+    type: DECIMAL(20,2)
+    expression: "CASE WHEN ccy='CNY' THEN balance ELSE balance*fx_mid END"
+    description: "按当日央行中间价折算的人民币余额"
+  - name: org_id
+    type: VARCHAR
+  - name: customer
+    relationship: deposit_to_customer   # JOIN 句柄，不在 SQL 里现写
+properties:
+  time_semantics: point_in_time          # 时点量：跨期取期末，不可累加
+  data_owner: retail-deposit-team
+  certified: true
+
+# relationships.yml — 显式 JOIN，消除歧义
+- name: deposit_to_customer
+  models: [deposit_daily, customer]
+  join_type: many_to_one
+  condition: "deposit_daily.cust_id = customer.cust_id"
+
+# cubes/deposit/metadata.yml — 指标：口径只定义一次
+name: deposit_cube
+base_object: deposit_daily
+measures:
+  - name: 存款余额
+    expression: SUM(balance_cny)
+    time_aggregation: end_of_period      # 明确期末口径
+  - name: 日均存款余额
+    expression: AVG(balance_cny)
+time_dimensions:
+  - name: biz_date
+    expression: biz_date
+dimensions:
+  - name: 机构
+    expression: org_id
+synonyms: ["存款", "存款规模", "各项存款"]</code></pre>
+<p class="small">示例为示意结构，字段以实际平台语法为准。真正重要的是四个设计点：<strong>未声明的列不可见</strong>、<strong>JOIN 显式声明</strong>、<strong>指标带时间属性</strong>、<strong>同义词映射到认证指标</strong>。</p>
+
+<h3>13.4 权限下沉：从语义模型继承，不在接口层手写</h3>
+<p>银行业最常见的失败是"问数很快，但权限是另一套"——Agent 走语义层，API 走自己的鉴权，久而久之出现越权后门。正确做法是把权限作为语义模型的一部分：</p>
+<ul>
+  <li><strong>行级</strong>：把"可见机构 / 可见客户 / 可见产品"做成随请求传入的 securityContext（通常来自 JWT 中的岗位与机构），由语义引擎在生成查询时<strong>动态拼接过滤谓词</strong>；用户无法绕过，因为物理表不直接暴露。</li>
+  <li><strong>列级</strong>：PII 字段在模型层标记为敏感，按角色决定返回原值、掩码还是拒绝；同一指标不同岗位看到不同明细粒度。</li>
+  <li><strong>指标级</strong>：支持"指标 × 用户 × 维度"细粒度授权——不是"能访问这张表"，而是"能看这个指标的这个维度组合"。</li>
+  <li><strong>可验证</strong>：用越权用例（不同角色、不同域、跨机构）作为发布门禁的一部分；全绿才允许接口注册。</li>
+</ul>
+<div class="callout warn">
+  <strong>注意产品差异</strong>：WrenAI 的 MDL 是 YAML + JSON manifest、可自托管、支持 20+ 数据源；许可证按路径区分，<strong>core/**、sdk/** 现为 Apache 2.0</strong>（AGPL-3.0 仅为未来模块预留，详见第 14 章更正）；Cube Core 为 Apache 2.0；dbt Semantic Layer 的 GraphQL/JDBC 接口依赖 dbt Cloud；Cortex Analyst / Databricks Genie / Fabric 的语义对象则绑定各自平台但治理链路更短。选型的核心不是功能多寡，而是<strong>定义文件能否掌握在 ETL 组自己的 Git 里、能否迁移、能否被审计重建</strong>。
+</div>
+
+<h3>13.5 六步落地：从零到可用的语义层</h3>
+<table>
+<thead><tr><th>步骤</th><th>做什么</th><th>产出 / 卡点</th></tr></thead>
+<tbody>
+<tr><td><strong>1. 选域盘点</strong></td><td>挑一个数据域（如存款），列出 10–20 个高频指标，逐个找业务 owner 冻结口径卡：业务定义、计算公式、数据来源、维度、更新频率、时间属性、币种规则、责任人</td><td>口径确认单；<strong>签字不齐不进入建模</strong></td></tr>
+<tr><td><strong>2. 建逻辑模型</strong></td><td>把相关物理表映射成业务模型，显式声明主键、JOIN 基数与条件，只暴露必要列；给表和列写业务描述</td><td>models / relationships 定义；validate 通过（无重复名、无缺失主键、无悬空关系）</td></tr>
+<tr><td><strong>3. 写指标定义</strong></td><td>原子 / 派生 / 复合分层，配置同义词与时间属性；把环比、同比等窗口逻辑沉淀为可复用计算字段，不让大模型每次现写</td><td>metrics / cubes 定义 + 指标字典；<strong>每个指标必须有唯一 owner</strong></td></tr>
+<tr><td><strong>4. 权限下沉</strong></td><td>配置 RLS / CLS / 指标级授权与 PII 标记；从身份系统透传岗位与机构上下文</td><td>权限规则；越权用例集；<strong>越权零通过才放行</strong></td></tr>
+<tr><td><strong>5. 编译发布</strong></td><td>PR 审阅 → validate → build 成 manifest → 目录认证 → 通过 SQL/REST/MCP 暴露为只读服务；高频指标配置预聚合加速</td><td>版本化 manifest + 只读端点；<strong>评测不过阻断发布</strong></td></tr>
+<tr><td><strong>6. 回归与追溯</strong></td><td>每次语义或口径变更自动跑 Golden set（30–100 条真实问题）回归；保存<strong>语义快照</strong>（当时的字段映射、度量公式、关联关系），口径调整后可还原历史并回溯刷新</td><td>回归报告 + 语义快照；<strong>漂移拦截数纳入验收</strong></td></tr>
+</tbody>
+</table>
+
+<h3>13.6 让它"可追溯"的两个工程细节</h3>
+<div class="grid">
+  <div class="card"><div class="k">口径规则抽成参数，不写死 SQL</div><p>ETL 脚本里不要把可变口径写死；抽成参数表并单独记录版本。追溯时看参数表历史版本即可，不用 diff 几百行脚本——这是银行监管报表追溯实践里反复强调的一点。</p></div>
+  <div class="card"><div class="k">语义快照随每次发布留存</div><p>报表或定时查询触发时，自动保存当时的模型元数据（映射、公式、关联）快照。多数 BI 工具实时读最新模型，这会留下追溯盲区；语义快照补的就是这个缺口。</p></div>
+</div>
+<div class="callout ok">
+  <strong>ETL 组的边界不变</strong>：语义层里可以自动做的是——从元数据生成模型草稿、从指标字典生成定义草稿、口径变更时跑回归、生成文档与同义词建议；<strong>不能自动生效的是</strong>——指标口径冻结、权限规则、发布认证。这三类必须走 owner 签字和 PR，与第 8 章的副驾驶模式完全一致。
+</div>
+<p class="src">来源：<a href="https://docs.getwren.ai/oss/concepts/what_is_mdl">Wren AI 官方：What is MDL</a> · <a href="https://docs.getwren.ai/oss/reference/mdl">MDL schema reference（v5）</a> · <a href="https://github.com/Canner/WrenAI/blob/main/LICENSE">WrenAI 许可证（core/** Apache 2.0）</a> · <a href="https://www.cnblogs.com/xibuhaohao/articles/23388243">Wren MDL 计算字段与指标定义实践</a> · <a href="https://txtmix.com/posts/tech/canner-wrenai-genbi-context-layer">MDL 语义契约与 Git 版本化</a> · <a href="https://wise.smartbi.com.cn/article/470">金融指标口径版本管理与监管/经营口径复用</a> · <a href="https://www.aismartbi.com/article/749">银行指标体系分层（原子/派生/复合）与四层能力</a> · <a href="https://www.eshutong.com/tag/%E9%93%B6%E8%A1%8CBI%E5%B9%B3%E5%8F%B0">语义快照与四层追溯架构</a> · <a href="https://ex.chinadaily.com.cn/exchange/partners/82/rss/channel/cn/columns/snl9a7/stories/WS677f774da310b59111dad067.html">中原银行智能指标平台（指标语义层 + 国产模型）</a></p>
+
+<h2>14. Wren MDL 详解</h2>
+<div class="callout ok">
+  <strong>先更正一条旧信息</strong>：早期资料（包括上一版报告）常说 WrenAI 是 AGPL-3.0。按官方仓库当前 LICENSE，这是<strong>多许可证</strong>布局：<code>core/**</code>、<code>sdk/**</code>、<code>skills/**</code>、<code>examples/**</code> 及根文件为 <strong>Apache 2.0</strong>，<code>docs/**</code> 为 CC BY 4.0；AGPL-3.0 文本只是<strong>为未来可能引入的模块预先放置</strong>，目前未映射到任何路径。对银行商用评估而言这是实质性利好，但落地前仍应让法务按"实际取用的包 + 其 package manifest 声明"复核——官方明确说<strong>manifest 与总 LICENSE 冲突时以 manifest 为准</strong>。
+</div>
+
+<h3>14.1 它是什么：语义契约，不是注释</h3>
+<p>MDL（Modeling Definition Language）是 Wren AI 的核心语义契约。官方定义很直接：<strong>"Raw schemas describe storage. MDL describes meaning."</strong>（原始 schema 描述存储，MDL 描述含义。）它告诉 Agent、应用和人：有哪些数据集、暴露哪些字段、实体之间如何关联、哪些计算可复用、哪些查询形态应被当作稳定接口。</p>
+<p>官方把上下文分成五层，MDL 承载前三层，这也是理解它边界的关键：</p>
+<table>
+<thead><tr><th>层</th><th>内容</th><th>状态（官方标注）</th><th>由什么承载</th></tr></thead>
+<tbody>
+<tr><td>Structural 结构层</td><td>表、列、类型、键、物理关系</td><td>已提供</td><td>MDL 的 models / columns / relationships</td></tr>
+<tr><td>Semantic 语义层</td><td>业务命名的模型、可复用计算、权威表、枚举定义</td><td>已提供</td><td>MDL 的 calculated fields / views / cubes</td></tr>
+<tr><td>Business 业务层</td><td>公司特有定义（活跃客户、收入、流失）与内部命名</td><td>已提供</td><td>knowledge/glossary、metrics</td></tr>
+<tr><td>Operational 运营层</td><td>批准的 join 路径、许可查询、治理约束</td><td><strong>开发中</strong></td><td>knowledge/rules（部分）</td></tr>
+<tr><td>Behavioral 行为层</td><td>历史查询、成功 SQL、用户反馈、语义示例</td><td><strong>开发中</strong></td><td>knowledge/sql + memory</td></tr>
+</tbody>
+</table>
+<div class="callout warn">
+  <strong>银行视角的重要提醒</strong>：官方明确标注 Operational 与 Behavioral 两层"in development"。对银行而言，权限策略、批准 join 路径、审计这类运营级治理<strong>不能依赖尚在开发的层</strong>——这正是前面反复强调"权限判定留在自己的语义层与网关"的原因。MDL 可以用，但不要把它当成完整治理系统。
+</div>
+
+<h3>14.2 项目结构：一切皆文件，可 Git 管理</h3>
+<pre style="background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px;overflow:auto;font-size:12px;line-height:1.6"><code>my_project/
+├── wren_project.yml          # 项目元数据（schema_version 当前为 5）
+├── models/
+│   ├── orders/metadata.yml            # table_reference：映射物理表
+│   ├── customers/metadata.yml
+│   └── revenue_summary/
+│       ├── metadata.yml                # ref_sql：用 SQL 定义模型
+│       └── ref_sql.sql                 # SQL 可放同级文件（优先）
+├── views/&lt;name&gt;/
+│   ├── metadata.yml                    # 命名 SQL，行为类似虚拟表
+│   └── sql.yml                         # 可选，优先于内联 statement
+├── cubes/&lt;name&gt;/metadata.yml          # 预聚合对象
+├── relationships.yml                   # 全局 JOIN 关系
+├── knowledge/                          # schema_version 5+ 新增
+│   ├── rules/                          # 业务规则与确定性默认值
+│   ├── glossary/  metrics/  caveats/   # 术语 / 指标 / 已知数据陷阱
+│   ├── sql/                            # NL→SQL Verified 样例（memory 的真源）
+│   └── knowledge.yml                   # 知识轴配置（版本与 MDL 解耦）
+├── .wren/memory/                       # LanceDB 派生索引（gitignored，可重建）
+└── target/mdl.json                     # 编译产物（gitignored，可重建）</code></pre>
+<p><strong>设计要点</strong>：连接配置（profile）放在项目之外（<code>~/.wren/profiles.yml</code>），凭证不进 Git；源码 YAML 与 <code>knowledge/</code> 入库，<code>target/mdl.json</code> 和 <code>.wren/memory/</code> 是派生物不入库。这套"定义入库、派生不入库、凭证外置"的分离，正好符合银行对可审计、可迁移、凭证不外泄的要求。</p>
+
+<h3>14.3 六类 YAML 与核心对象</h3>
+<table>
+<thead><tr><th>对象</th><th>文件</th><th>定义什么 / 关键字段</th></tr></thead>
+<tbody>
+<tr><td>项目配置</td><td><code>wren_project.yml</code></td><td><code>schema_version</code>（当前 5）、<code>name</code>、<code>version</code>、<code>catalog</code>/<code>schema</code>（<strong>Wren 内部命名空间，不是数据库 catalog/schema</strong>）、<code>data_source</code>、<code>profile</code></td></tr>
+<tr><td><strong>Model</strong></td><td><code>models/&lt;name&gt;/metadata.yml</code></td><td><code>table_reference</code>（物理表）或 <code>ref_sql</code>（SQL 定义，二者互斥）；<code>columns</code>；<code>primary_key</code>（TO_MANY 遍历必需）；<code>cached</code>；<code>dialect</code>；<code>properties</code></td></tr>
+<tr><td>Column</td><td>在 model 内</td><td><code>name</code>/<code>type</code>；<code>is_calculated</code>+<code>expression</code>（计算列）；<code>relationship</code>（JOIN 句柄列）；<code>is_hidden</code>（引擎内部，<strong>从符号表剔除、对所有客户端不可见</strong>）；<code>properties.description</code></td></tr>
+<tr><td><strong>Relationship</strong></td><td><code>relationships.yml</code></td><td><code>name</code>、<code>models</code>（恰好两个）、<code>join_type</code>（ONE_TO_ONE / ONE_TO_MANY / MANY_TO_ONE / MANY_TO_MANY）、<code>condition</code>（<strong>仅支持等值条件</strong>，用 <code>model.column</code> 引用）</td></tr>
+<tr><td><strong>View</strong></td><td><code>views/&lt;name&gt;/metadata.yml</code></td><td><code>name</code> + <code>statement</code>（完整 SELECT）；列声明不继承，查询时从语句推断；可递归引用其他 view</td></tr>
+<tr><td><strong>Cube</strong></td><td><code>cubes/&lt;name&gt;/metadata.yml</code></td><td><code>base_object</code>、<code>measures[]</code>（聚合值）、<code>dimensions[]</code>、<code>time_dimensions[]</code>、<code>hierarchies</code>（下钻）、<code>refresh_time</code>；通过 <code>wren cube query</code> 结构化查询，不写 GROUP BY</td></tr>
+<tr><td>Knowledge</td><td><code>knowledge/**</code></td><td><code>rules/</code> 业务规则（可带 <code>exclude_rows</code>、<code>require_rate_join</code> 等确定性约束）；<code>sql/</code> verified NL-SQL 对；<code>glossary/metrics/caveats</code></td></tr>
+</tbody>
+</table>
+<p>还有一个容易被忽略的机制：<strong>列重命名</strong>。当 <code>is_calculated: false</code> 但写了 <code>expression</code> 时，表达式必须是简单列引用——例如对外暴露名 <code>customer_id</code>、物理列 <code>usr_id</code>。这让"业务字段名"和"遗留系统字段名"解耦，对银行核心系统尤其有用。</p>
+<div class="callout warn">
+  <strong>一个已知限制</strong>：官方明确说明，<strong>关系句柄不能直接在查询里遍历</strong>——<code>SELECT orders.customer.first_name FROM orders</code> 会报 "No field named orders.customer.first_name"，因为关系列被排除在模型注册给引擎的 schema 之外。正确做法是用同一模型上的<strong>计算列</strong>穿透句柄（如计算列 <code>customer_name</code> 的表达式写 <code>customer.first_name</code>）。对 TO_MANY 关系，穿透的计算列必须用聚合函数，引擎会把 join 包进聚合子查询防止行数膨胀。
+</div>
+
+<h3>14.4 编译链路：YAML → 引擎可读的 manifest</h3>
+<p><code>wren context build</code> 把所有分散 YAML 编译成单一 <code>target/mdl.json</code>，供 Rust 引擎 <code>wren-core</code>（基于 Apache DataFusion）消费。字段名从 <strong>snake_case 转 camelCase</strong>：<code>table_reference→tableReference</code>、<code>ref_sql→refSql</code>、<code>is_calculated→isCalculated</code>、<code>join_type→joinType</code>、<code>base_object→baseObject</code> 等；<code>layoutVersion</code> 由 build 自动写入，不要手填。</p>
+<p>生命周期命令（官方 CLI）：</p>
+<ul>
+  <li><code>wren context init</code> — 脚手架：空项目、v5 布局，或从既有 MDL JSON / OSI / dbt 转换</li>
+  <li><code>wren context validate</code> — 按 schema_version 校验结构（重复名、缺失主键、悬空关系、列类型）</li>
+  <li><code>wren context build</code> — 编译成 manifest；<code>wren context show</code> 检查；<code>wren context upgrade --dry-run</code> 可预演版本升级</li>
+  <li><code>wren memory index / fetch / store</code> — 索引业务规则与 NL-SQL 对、按问题取相关上下文、把成功查询沉淀回 <code>knowledge/sql/</code></li>
+  <li><code>wren dry-plan / wren dry-run / wren cube query</code> — 计划转译、语法与库级权限校验、Cube 结构化查询</li>
+</ul>
+
+<h3>14.5 查询正确性：四道校验 + 声明式默认值</h3>
+<p>这是 MDL 对银行最有价值的部分——它不只"生成 SQL"，而是在执行前做多层校验：</p>
+<div class="grid">
+  <div class="card"><div class="k">1 · Schema Linking</div><p><code>wren memory fetch</code> 只取与当前问题相关的模型、列、关系子集，避免 token 耗尽与提示词混淆。</p></div>
+  <div class="card"><div class="k">2 · Dry-Plan</div><p><code>wren dry-plan</code> 把建模 SQL 转译到目标方言、解析关系路径、应用策略过滤。</p></div>
+  <div class="card"><div class="k">3 · Dry-Run</div><p><code>wren dry-run</code> 对活库校验语法与库级权限，<strong>不返回完整结果集</strong>。</p></div>
+  <div class="card"><div class="k">4 · Structured Errors</div><p>返回显式结构化错误对象，让 Agent 自我纠正，而不是把错 SQL 直接打到生产库。</p></div>
+</div>
+<p>此外，<code>knowledge/rules/*.md</code> 可声明<strong>确定性约束</strong>（如 <code>exclude_rows</code> 排除内部行、<code>require_rate_join</code> 要求汇率关联、<code>sale_statuses</code> 限定状态），引擎用 AST 检查（<code>DefaultsChecker</code>）在<strong>不实际执行</strong>的情况下验证查询是否遵守。这几乎就是我们前面说的"口径未确认不上线"的机器可读版本——可以直接把银行的时间属性、折算规则写成这类规则。</p>
+
+<h3>14.6 引擎与生态</h3>
+<p>wren-engine 已并入 Canner/WrenAI 的 <code>core/</code> 目录，模块划分清晰：</p>
+<ul>
+  <li><strong>wren-core</strong>：Rust 语义引擎，基于 Apache DataFusion 做 MDL 分析、计划与优化</li>
+  <li><strong>wren-core-base / wren-core-py</strong>：共享 manifest 类型 / PyO3 Python 绑定</li>
+  <li><strong>ibis-server</strong>：FastAPI 服务，负责查询执行、校验、元数据与连接器</li>
+  <li><strong>mcp-server</strong>：MCP server，让任意 MCP 客户端（Claude Desktop、Cursor、VS Code 等）查询受治理数据</li>
+</ul>
+<p><strong>数据源（开源版官方列举）</strong>：Amazon S3、Spark、Apache Doris、Athena、BigQuery、ClickHouse、Databricks、DuckDB、GCS、本地文件、MinIO、MySQL、Oracle、PostgreSQL、Redshift、SQL Server、Snowflake、Trino 等。<strong>互操作</strong>：支持从 dbt manifest.json/catalog.json、OpenMetadata、Apache OSI（Open Semantic Interchange）导入导出——这意味着银行已有的 dbt 资产和目录可以迁移进来，不必推倒重来。</p>
+
+<h3>14.7 银行落地：能用什么、必须补什么</h3>
+<table>
+<thead><tr><th>维度</th><th>Wren MDL 能给的</th><th>银行必须自己补的</th></tr></thead>
+<tbody>
+<tr><td>口径一致性</td><td>业务命名、计算字段只定义一次；未声明列不可见；权威表规则</td><td>时点/时期属性、多币种折算、机构 SCD、监管口径版本——需在 knowledge/rules 与 metrics 里显式写清（见第 13 章）</td></tr>
+<tr><td>准确性</td><td>显式 JOIN 消除歧义、dry-plan/dry-run 校验、verified NL-SQL 样例积累</td><td>Golden set 回归门禁；把"采纳率/准确率"作为验收指标持续度量</td></tr>
+<tr><td>权限</td><td>dry-run 校验库级权限；策略过滤在 dry-plan 阶段应用</td><td><strong>行级/列级权限的完整实现与审计不能依赖"开发中"的 Operational 层</strong>；保留自己的网关与权限判定</td></tr>
+<tr><td>可审计</td><td>定义全在 Git，可 diff、可 PR、可追溯谁改了什么；manifest 可重建</td><td>审计轨迹外写到自己的 WORM 存储；发布认证与 owner 签字流程</td></tr>
+<tr><td>部署</td><td>自托管、模型无关、多源、MCP 暴露；Apache 2.0（core）</td><td>区域化部署拓扑、数据不出域验证、凭证隔离与密钥管理</td></tr>
+</tbody>
+</table>
+<div class="callout ok">
+  <strong>结论</strong>：Wren MDL 是第 13 章"四层契约"目前<strong>最贴近开源、最贴合 ETL 组可掌控资产</strong>的一种实现——YAML 在 Git、编译可重建、模型无关、支持 MCP、Apache 2.0。建议作为 P1 阶段语义层原型的首选候选之一，但<strong>权限治理与审计必须外挂</strong>，并把它当作可替换组件而非银行唯一真相源。
+</div>
+<p class="src">来源（均为官方一手）：<a href="https://docs.getwren.ai/oss/concepts/what_is_mdl">What is MDL</a> · <a href="https://docs.getwren.ai/oss/reference/mdl">MDL schema reference（v5 全字段）</a> · <a href="https://deepwiki.com/Canner/WrenAI/1.2-core-concepts">Core Concepts（五层上下文、正确性系统、declared defaults）</a> · <a href="https://deepwiki.com/Canner/WrenAI/4.2-project-and-context-management">Project and Context Management（编译生命周期、dbt/OSI 互操作）</a> · <a href="https://github.com/Canner/wren-engine">Wren Engine README（模块、数据源、MCP）</a> · <a href="https://github.com/Canner/WrenAI/blob/main/LICENSE">WrenAI LICENSE（多许可证映射）</a></p>
+
+<h2>15. 关键来源</h2>
+<div class="src">
+<ol>
+<li>Snowflake 官方：Agentic analytics、Semantic Views、Cortex Agents — <a href="https://www.snowflake.com/en/blog/agentic-analytics-explained/">链接</a> · <a href="https://snowflake.com/en/developers/guides/best-practices-semantic-views-cortex-analyst">链接</a></li>
+<li>Databricks 官方：Genie One MCP、Unity Catalog 权限继承、托管 MCP — <a href="https://www.databricks.com/blog/genie-one-mcp-give-any-ai-agent-right-business-context">链接</a> · <a href="https://docs.databricks.com/aws/en/agents/mcp-tools/built-in-mcp-services">链接</a></li>
+<li>Microsoft Learn：Fabric Data Agent（只读限制、权限优先级、Purview）— <a href="https://learn.microsoft.com/en-us/fabric/data-science/concept-data-agent">链接</a></li>
+<li>MCP 规范 2026-07-28 与安全综述 — <a href="https://modelcontextprotocol.io/specification/2026-07-28">链接</a> · <a href="https://addepto.com/?p=28023">链接</a></li>
+<li>NL2SQL 企业准确率差距 — <a href="https://ishchuk.eu/blog/ask-natural-language-questions-query-sql-database">链接</a> · <a href="http://infinisynapse.com/nl2sql/index.html">链接</a></li>
+<li>开源语义层与目录：dbt MetricFlow、Cube、Wren AI、DataHub、OpenMetadata 官方文档与仓库</li>
+</ol>
+</div>
+
+<footer>本版已按数据部门 ETL 组职责边界重写。原全行级方案（监管时间线、20 条 RFP 门槛）不再纳入交付范围；第 12 章补充的银行案例仅作为可行性与收益参照，不作为本组承诺。</footer>
+</div>
+</body>
+</html>

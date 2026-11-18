@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>银行 Data Agent — 领域专家的深度工作法</title>
+<style>
+  :root{
+    --bg:#f7f9f8; --panel:#ffffff; --ink:#16211f; --muted:#5b6b68;
+    --line:#dde6e3; --accent:#0b6b58; --accent-soft:#e6f4ef;
+    --warn:#a8631a; --warn-soft:#fdf1e2; --red:#a32b2b; --red-soft:#fbecec;
+    --code:#0f2e28;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.75;font-size:15px}
+  .wrap{max-width:960px;margin:0 auto;padding:40px 28px 80px}
+  header.hero{background:linear-gradient(135deg,#0b6b58,#0e8c6f);color:#fff;border-radius:18px;padding:34px 34px 30px;margin-bottom:30px}
+  header.hero h1{margin:0 0 10px;font-size:29px;line-height:1.3}
+  header.hero p{margin:6px 0;color:#dff3ec;font-size:15px}
+  .tag{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);
+    padding:3px 11px;border-radius:20px;font-size:12px;margin:8px 6px 0 0}
+  h2{font-size:22px;margin:42px 0 16px;padding-left:12px;border-left:4px solid var(--accent);line-height:1.4}
+  h3{font-size:17px;margin:26px 0 10px;color:var(--accent)}
+  p{margin:10px 0}
+  .lead{font-size:16px;color:var(--muted)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:12px 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:14px 0}
+  .grid .card{margin:0}
+  .k{font-weight:700;color:var(--accent);font-size:14px;margin-bottom:6px}
+  .callout{border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:14px 18px;margin:16px 0}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft)}
+  .callout.red{border-left-color:var(--red);background:var(--red-soft)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;background:var(--panel);border-radius:10px;overflow:hidden;font-size:14px}
+  th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+  th{background:#eef4f2;color:#0c5849;font-weight:700}
+  tr:nth-child(even) td{background:#fbfdfc}
+  code{background:#eef3f1;color:#0c5849;padding:1px 6px;border-radius:5px;font-size:13px}
+  pre{background:var(--code);color:#d7f0e8;border-radius:10px;padding:16px 18px;overflow-x:auto;font-size:12.5px;line-height:1.6}
+  .src{font-size:12px;color:var(--muted);margin-top:8px}
+  .num{display:inline-flex;width:24px;height:24px;background:var(--accent);color:#fff;border-radius:50%;
+    align-items:center;justify-content:center;font-size:13px;font-weight:700;margin-right:8px}
+  .quote{font-style:italic;color:#374b47;border-left:3px solid var(--line);padding-left:14px;margin:12px 0}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+  .vs .col{border-radius:12px;padding:16px 18px;border:1px solid var(--line)}
+  .vs .a{background:#f4f6f5}
+  .vs .b{background:var(--accent-soft);border-color:#bfe3d6}
+  .badge{display:inline-block;padding:1px 9px;border-radius:12px;font-size:12px;font-weight:500;white-space:nowrap}
+  .badge.auto{background:#E1F5EE;color:#085041;border:1px solid #5DCAA5}
+  .badge.help{background:#FAEEDA;color:#633806;border:1px solid #EF9F27}
+  .badge.no{background:#FCEBEB;color:#791F1F;border:1px solid #F09595}
+  .flowlog{background:#eef4f2;border-radius:8px;padding:12px 16px;line-height:2.1}
+  footer{margin-top:50px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  @media(max-width:640px){.vs{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>银行 Data Agent：领域专家的深度工作法</h1>
+  <p>不是"更全"，而是"更深"——专家会做哪些你没要求的事、从哪些原始素材入手、用什么具体方法与工具。</p>
+  <p>这一版刻意不堆案例、不加章节，只回答一个问题：真正的专家和资料汇编，差在哪。</p>
+  <div>
+    <span class="tag">诊断先于处方</span>
+    <span class="tag">行为优于意图</span>
+    <span class="tag">可证伪优于可演示</span>
+    <span class="tag">监管即工程控制</span>
+  </div>
+</header>
+
+<div class="callout">
+  <strong>总纲：三次视角切换</strong>
+  <p style="margin-bottom:0">① 从"给答案"切到"重构问题"（先判断该不该做）；② 从"你准备的二手汇总"切到"一手原始素材"（行为比意图可靠）；③ 从"列工具"切到"方法判断"（知道为什么选它、什么时候不用它）。下面三章对应这三次切换。</p>
+</div>
+
+<h2>一、专家会做、但你没有要求的事</h2>
+<p class="lead">你一路问的是"怎么落地、怎么实现、用什么工具"——都是显式的显式技术需求。专家真正值钱的动作，大多发生在这些问题<strong>之前</strong>和<strong>之外</strong>。以下十项，没有一项是你要求的，但缺了任何一项，前面 15 章的方案都只是纸面文章。</p>
+
+<h3><span class="num">1</span>先重构问题：判断"该不该做 Agent"</h3>
+<p>专家听到"我要落地 Data Agent"，第一反应不是给方案，而是质疑问题本身：你现在真正的瓶颈是什么——取数排队慢？口径不一致导致扯皮？数据质量差？还是报表开发人力不足？</p>
+<p>因为 <strong>Data Agent 不是万能药</strong>。如果痛点是口径不一致，正确答案可能是一个指标平台 + 治理，Agent 只是上面的薄壳；如果只是取数慢，预计算/物化视图可能解决 80%，根本不需要 Agent。专家会先做根因分析（5 Whys / 约束理论 TOC），确认 Agent 是不是瓶颈的正确解法。<strong class="k" style="display:inline">拒绝在错误的问题上给出正确的答案——这是最体现水平的动作，却从不在需求清单里。</strong></p>
+
+<h3><span class="num">2</span>建立基线与对照组：没有基线就没有收益</h3>
+<p>在任何改动之前，专家先测量现状：一个取数需求从提出到交付的 P50/P95 时长、返工率、分析师花在"找数据 + 对口径"上的时间占比、当前报表吞吐量。为什么？因为后面所有"提升"都必须能被证伪——没有基线，你分不清哪些是 Agent 带来的、哪些是业务本身波动。</p>
+<p>银行场景里，业务方和审计一定会问"收益在哪"。没有基线的收益数字都是编的。这也是前面案例章反复强调"各家口径不一，只能当参照区间"的根本原因——<strong>你需要的是自己的基线，不是别人的披露值</strong>。</p>
+
+<h3><span class="num">3</span>数据就绪度审计：先看现实，别假设数据能用</h3>
+<p>专家不会假设数据是干净的。他会先审计目标域：表结构是否稳定、口径是否真的一致（文档说一致，实际 SQL 各写各的是常态）、元数据可信度、有没有真正的业务 owner、历史数据质量。麦肯锡的调研里，八成企业称数据限制是 Agent 规模化的主要障碍。</p>
+<div class="callout warn">专家交付的第一份东西，往往不是 Agent，而是一份<strong>"数据就绪度评估 + 哪些域暂时不该做"的清单</strong>。这和"直接问怎么做 Agent"的预期相反——但正因为反直觉，才是深度。</div>
+
+<h3><span class="num">4</span>定义失败：把"什么时候必须拒绝"设计出来</h3>
+<p>你问"能做什么"，专家先定义"必须拒绝什么"。银行 Agent 最危险的不是答不出，而是<strong>该拒绝时没拒绝</strong>——一个该弃答的问题被 hallucination 出一个看似合理的数，直接进决策或报表。专家会系统设计：置信度阈值、歧义追问策略、弃答机制、越权拦截、高风险动作人工确认门，以及一份失败模式清单（提示词注入、口径漂移、幻觉直出、跨租户泄露）及对应测试。</p>
+
+<h3><span class="num">5</span>把监管"编译"成工程控制项</h3>
+<p>你看到监管条文是"合规要求"，专家看到的是"这条对应我要在哪个环节加什么日志、什么阈值、什么审批"。他产出的是一张映射矩阵，而不是一段合规声明：</p>
+<table>
+<thead><tr><th>监管条款</th><th>编译后的工程控制项</th><th>验收证据</th></tr></thead>
+<tbody>
+<tr><td>EU AI Act Art.12 自动日志</td><td>不可篡改 append-only 轨迹 + 保留期限</td><td>WORM 存储配置 + 回放测试</td></tr>
+<tr><td>Art.14 人类监督</td><td>高风险动作的人工审批门</td><td>审批链记录 + 越权用例全绿</td></tr>
+<tr><td>SR 11-7 / SR 26-2</td><td>模型清单 + 独立验证 + 漂移监控</td><td>模型卡 + 漂移告警记录</td></tr>
+<tr><td>BCBS 239</td><td>血缘可追溯 + 可核对 + 董事会报告</td><td>血缘解析结果 + 对账报告</td></tr>
+<tr><td>金监总局 24 号文第31条</td><td>责任不可外包，核心能力内建</td><td>RACI 责任矩阵 + 自有人力配置</td></tr>
+</tbody>
+</table>
+<p>没有这张矩阵，RFP 无法验收，审计也过不了。这是"合规语言 → 工程语言"的翻译工作，不在任何需求清单里。</p>
+
+<h3><span class="num">6</span>组织责任模型与追责链</h3>
+<p>你全程问技术，但专家清楚银行项目失败多半是组织问题：谁冻结口径？Agent 生成的 SQL 谁负责？出错时追责链是什么？他会设计完整的 RACI 与责任不可外包机制，并明确"业务 owner 必须签字冻结口径"这道治理流程——这直接决定了第 8 章"审核权在人"能不能真正落地，而不只是一句原则。</p>
+
+<h3><span class="num">7</span>反事实评估：build vs buy vs no-op</h3>
+<p>专家会算一笔账：不用 Agent，用传统 BI 自助分析 + 指标平台能不能解决 80%？成本多少？净收益如何？有时诚实答案是"不做更划算"。<strong>把"不做"作为正式选项评估</strong>，是判断力而非消极——你从没要求这个选项。</p>
+
+<h3><span class="num">8</span>可证伪的 MVP，而不是可演示的 Demo</h3>
+<p>你要 MVP，专家设计的 MVP 目标是"<strong>能被推翻</strong>"：预先定义失败阈值（如准确率 &lt; 90% 就停），并真的执行停止。设计一组实验——若失败，就证明这个方向不该继续，及时止损。这是科学家思维与推销员思维的分水岭：Demo 用来证明"可行"，可证伪实验用来判断"该不该继续"。</p>
+
+<h3><span class="num">9</span>退出与可迁移性设计</h3>
+<p>专家从第一天就设计"如果供应商涨价、模型被禁、项目下马，怎么迁走"。这正是前面为什么反复强调"定义文件要在自己的 Git 里、运行时要可替换、审计记录要开放格式"——不是洁癖，是银行的生命线。可迁移性是架构属性，不是事后补丁。</p>
+
+<h3><span class="num">10</span>上线即评估起点：可观测与成本建模</h3>
+<p>专家同步设计上线后的观测体系：漂移检测、幻觉率监控、用户反馈闭环、Golden set 持续更新，以及 token 成本随用户量/查询量增长的曲线——什么时候本地化推理更划算。Agent 上线不是终点，是持续评估的起点。</p>
+
+<h2>二、专家从哪些最原始素材入手</h2>
+<p class="lead">这是最关键的一问。你准备的材料（前面所有报告、方案、案例）都是<strong>二手的、汇总过的、表达"意图"的</strong>。专家回到<strong>一手的、原始的、记录"行为"和"事实"的</strong>素材。一句话概括他的偏好：</p>
+<div class="quote">文档说"应该怎样"，日志显示"实际怎样"。专家信日志，不信文档——因为行为不会撒谎，而文档常常是理想化的、过时的、没人维护的。</div>
+
+<div class="vs">
+  <div class="col a">
+    <div class="k">你已准备的材料（二手 / 意图）</div>
+    <p style="margin-bottom:0">方案报告、案例汇编、厂商白皮书解读、整理过的指标字典、需求文档、架构图。它们回答"大家说应该怎么做"。</p>
+  </div>
+  <div class="col b">
+    <div class="k">专家的起点（一手 / 行为与事实）</div>
+    <p style="margin-bottom:0">生产库 DDL、真实 SQL 日志、profiling 结果、监管报送原文、业务访谈录音、取数工单、失败事故报告。它们回答"这里实际发生了什么"。</p>
+  </div>
+</div>
+
+<h3>A. 数据现实类——不是数据文档</h3>
+<table>
+<thead><tr><th>原始素材</th><th>怎么拿到</th><th>为什么比"你的材料"可靠</th></tr></thead>
+<tbody>
+<tr><td>生产库真实 DDL / schema</td><td><code>SHOW CREATE TABLE</code> 直连生产/镜像</td><td>暴露字段混乱、无注释、历史遗留——这才是语义层真正要遮蔽的现实，架构图里看不到</td></tr>
+<tr><td>6–12 个月真实 SQL 查询日志</td><td>数仓查询审计日志、BI 工具日志</td><td><strong>金矿</strong>：业务实际怎么算指标、反复 join 哪些表。从这里挖出的口径是"真口径"，可直接变成 Golden set 与候选指标</td></tr>
+<tr><td>数据剖析（profiling）结果</td><td>Great Expectations / dbt tests 跑一遍</td><td>真实的空值率、分布、异常；"数据质量好"这种文档描述毫无意义</td></tr>
+<tr><td>实际血缘解析结果</td><td>OpenLineage / DataHub 从 SQL 解析</td><td>机器跑出来的依赖，不是手画的、早已过期的架构图</td></tr>
+</tbody>
+</table>
+
+<h3>B. 口径真相类——不是整理过的指标字典</h3>
+<ul>
+  <li><strong>监管报送制度原文</strong>（人行 / 金监总局报表制度、披露口径）：监管口径最权威来源，不是任何解读文章。</li>
+  <li><strong>内部指标字典的原始文件</strong>——散落在 Excel / Confluence、多版本并存的那几份。专家会验证它与真实 SQL 是否一致（通常不一致），差异本身就是关键发现。</li>
+  <li><strong>业务专家访谈的原始记录</strong>：坐到业务旁边问"你说的'余额'到底是时点余额还是日均余额、含不含应计利息"。原始访谈笔记比任何整理过的口径文档都真实。</li>
+  <li><strong>历史取数工单 / 需求单</strong>：含业务最初的模糊描述和反复澄清的完整对话——这是 NL 问题的最佳来源，真实、带歧义、带上下文。</li>
+</ul>
+
+<h3>C. 失败与评测类——你完全没准备，但最有价值</h3>
+<ul>
+  <li><strong>历史"取数错误 / 口径事故"报告</strong>：过去因为口径理解错误导致的返工、投诉、监管问询。这是设计防护的重点，比任何"应该做对"的文档更能说明系统必须防什么。</li>
+  <li><strong>现有系统的失败对话日志</strong>：如果有 BI 问答或客服机器人，用户骂它的那些 case 是最真实的评测素材。</li>
+</ul>
+
+<h3>D. 技术与监管原文——不是二手解读</h3>
+<ul>
+  <li><strong>原始论文与 benchmark 数据集</strong>：Spider / BIRD / Spider 2.0 的原论文和数据集，直接了解真实难度和失败模式，而不是"某博客说准确率 90%"。</li>
+  <li><strong>开源项目的源码与 issue</strong>：Wren 的编译逻辑要看源码；Vanna 为什么归档要看 issue 和 archival commit——这些结论在营销页永远看不到。</li>
+  <li><strong>监管官方文本</strong>：EU AI Act、SR 11-7、BCBS 239 原文，逐条编译，不靠二手摘要。</li>
+  <li><strong>厂商 API 文档原文</strong>：能力边界以官方文档为准，不以营销页为准。</li>
+</ul>
+<div class="callout ok"><strong>结论</strong>：专家的第一个动作不是"搜方案"，而是"把你这个行、这个域的真实数据和真实问题摊开来看"。外部案例之所以只能当参照区间，正是因为每家银行的数据现实都不同——而你的现实，藏在一手素材里，不在我给你的报告里。</div>
+
+<h2>三、专家会用的具体方法与工具</h2>
+<p class="lead">按工作流阶段组织为"<strong>方法 → 工具 → 产出</strong>"。关键不在工具名本身，而在<strong>为什么选它、什么时候不该用它</strong>——后者才是专家判断。</p>
+
+<h3>阶段 1 · 诊断与评估</h3>
+<table>
+<thead><tr><th>方法</th><th>具体工具</th><th>产出 / 判断点</th></tr></thead>
+<tbody>
+<tr><td>Data Readiness Assessment（数据就绪度评估）</td><td>DataHub / OpenMetadata（元数据盘点）、Great Expectations / dbt tests（质量剖析）</td><td>就绪度评分 + "暂缓域"清单</td></tr>
+<tr><td>5 Whys / 约束理论 TOC</td><td>无特定工具，靠结构化访谈与价值流图</td><td>根因结论：Agent 是不是正确解法</td></tr>
+<tr><td>RACI 责任矩阵、TCO 建模、Build/Buy/NoOp 分析</td><td>电子表格 + 成本模型</td><td>责任归属 + 净收益测算</td></tr>
+</tbody>
+</table>
+
+<h3>阶段 2 · 从日志挖口径（最少人做、回报最高）</h3>
+<p>这是区分专家与普通方案的关键一步。<strong>方法</strong>：Query Log Mining、SQL AST 分析、查询聚类。<strong>工具</strong>：<code>sqlglot</code>（把历史 SQL 解析成 AST，自动找高频 join 路径与指标表达式）、<code>OpenLineage</code>（真实血缘）。<strong>判断点</strong>：日志里反复出现的计算模式，才是真正的高频指标——它天然就是 Golden set 的种子，比"让业务凭空想问题"可靠得多。</p>
+
+<h3>阶段 3 · 语义建模</h3>
+<table>
+<thead><tr><th>方法</th><th>具体工具</th><th>为什么选它</th></tr></thead>
+<tbody>
+<tr><td>Kimball 维度建模、Data Contract、指标分层（原子/派生/复合）</td><td>WrenAI MDL、dbt Semantic Layer / MetricFlow、Cube.dev、AtScale、LookML</td><td>定义文件要能进自己的 Git、可版本化、可迁移；凭证外置</td></tr>
+<tr><td>时间属性 / 多币种 / SCD 处理</td><td>语义层的 calculated field + knowledge rules（如 <code>exclude_rows</code> / <code>require_rate_join</code>）</td><td>银行特有口径写成机器可校验规则，而不是口头约定</td></tr>
+</tbody>
+</table>
+
+<h3>阶段 4 · 开发与评测</h3>
+<ul>
+  <li><strong>方法</strong>：NL→DSL→SQL 两段式、Golden set 回归、RAG、Human-in-the-loop、prompt/示例工程。</li>
+  <li><strong>框架</strong>：LangGraph / Semantic Kernel（编排）、Wren Engine（语义执行）。</li>
+  <li><strong>评测</strong>：Spider / BIRD / Spider 2.0（基准，但只作参考）、RAGAS / TruLens / DeepEval（RAG 质量）、<code>promptfoo</code>（回归 + 越权用例）。</li>
+  <li><strong>链路观测</strong>：Langfuse / LangSmith（tracing）——专家看的是整条链（意图→检索→SQL→结果），不只是"模型答对没有"。</li>
+</ul>
+
+<h3>阶段 5 · 安全与治理</h3>
+<ul>
+  <li><strong>方法</strong>：RBAC/ABAC、行级/列级安全（RLS/CLS）、OBO 身份穿透、最小权限、STRIDE 威胁建模、LLM 红队。</li>
+  <li><strong>工具</strong>：<code>OPA</code>（策略即代码）、Kong / Envoy（网关）、Vault（凭证隔离）、<code>Garak</code>（LLM 红队）、<code>promptfoo</code>（越权用例）。</li>
+  <li><strong>判断点</strong>：红队是<strong>主动攻击</strong>自己的系统，而不是等审计来发现问题。这是专家与"合规应付"的分界。</li>
+</ul>
+
+<h3>阶段 6 · 审计与可观测</h3>
+<ul>
+  <li><strong>方法</strong>：append-only 日志、WORM（一次写入多次读取）存储、drift detection。</li>
+  <li><strong>工具</strong>：OpenTelemetry（统一埋点）、Langfuse（Agent 轨迹）、MLflow（模型/实验管理）、S3 Object Lock（不可变证据存储）。</li>
+  <li><strong>判断点</strong>：Harness 的 session log 不是 WORM，必须同步到自己的不可变存储——这是前面已确认的红线。</li>
+</ul>
+
+<h3>阶段 7 · 发布与运维</h3>
+<ul>
+  <li><strong>方法</strong>：契约测试、变更管理、渐进授权（observe → auto）。</li>
+  <li><strong>工具</strong>：<code>Pact</code>（契约测试）、GitHub Actions / GitLab CI（门禁）、OpenAPI / Swagger（接口契约）、ServiceNow（变更单）。</li>
+</ul>
+
+<div class="callout red">
+  <strong>工具选择的判断力，集中体现在三处（也是最容易被忽略的）：</strong>
+  <p style="margin-bottom:0">① 从 <code>sqlglot</code> 挖查询日志开始——因为口径真相在日志里，不在文档里；② 用 <code>promptfoo</code> / <code>Garak</code> 主动红队——因为防御设计要靠攻击来验证；③ 用 Langfuse 观测整条链——因为 Agent 的失败大多不在模型，而在检索、拼装、权限、工具调用这些环节。只会调模型 API 的人，这三条一条都不会做。</p>
+</div>
+
+<h2>四、从流程里提炼：哪些能交给 Data Agent</h2>
+<p class="lead">前面那条流程分三层——<strong>一手素材 → 专家动作 → 产出</strong>。现在是关键的一步：逐格判断，哪些环节 Data Agent 能自己跑、哪些只能辅助、哪些必须留给人。判断标准只有一条：<strong>输入是可获取的原始事实、输出是可被校验的草稿或证据、且错了能回滚</strong>。三条都满足才交给 Agent。</p>
+
+<h3>4.1 逐格判定表</h3>
+<table>
+<thead><tr><th>流程环节</th><th>归属</th><th>Data Agent 具体做什么</th><th>人守在哪里</th></tr></thead>
+<tbody>
+<tr><td>① 生产 DDL / schema</td><td><span class="badge auto">全自动出草稿</span></td><td>解析 schema、识别字段语义、生成逻辑模型初稿、标注 PII 候选、发现异常字段</td><td>owner 确认可见列与口径命名</td></tr>
+<tr><td>② 真实 SQL 日志</td><td><span class="badge auto">全自动</span></td><td>AST 解析、查询聚类、抽高频 join 路径与指标表达式、生成 Golden set 种子、检测口径冲突</td><td>业务确认哪个是"真口径"</td></tr>
+<tr><td>③ 监管报送原文</td><td><span class="badge help">辅助</span></td><td>条款结构化抽取、生成"条款→控制项"映射草稿、变更比对</td><td>合规逐条确认，草稿不得直接生效</td></tr>
+<tr><td>④ 历史失败事故</td><td><span class="badge auto">全自动出草稿</span></td><td>失败模式归类、生成红队用例与回归用例、沉淀防护规则候选</td><td>安全/QA 审用例覆盖度</td></tr>
+<tr><td>诊断重构（该不该做）</td><td><span class="badge help">辅助</span></td><td>数据就绪度自动扫描打分、现状指标采集、生成"暂缓域"清单</td><td>"该不该做"这个判断永远是人下</td></tr>
+<tr><td><strong>建立基线</strong></td><td><span class="badge auto">全自动</span></td><td>自动采集取数时长、返工率、查询失败率、口径一致率，维护基线看板</td><td>确认基线定义，防止"挑基线凑收益"</td></tr>
+<tr><td><strong>日志挖口径</strong></td><td><span class="badge auto">全自动</span></td><td>指标候选抽取、同义词发现、口径冲突检测——整条链回报最高的一环</td><td>口径冻结由 owner 签字</td></tr>
+<tr><td>红队评测</td><td><span class="badge auto">全自动跑</span></td><td>自动生成越权用例、注入测试、Golden set 回归，记录失败模式</td><td>失败阈值与放行决定由人定</td></tr>
+<tr><td>可证伪 MVP</td><td><span class="badge help">辅助</span></td><td>实验执行、指标采集、A/B 对照记录、失败阈值触发告警</td><td>"停止 / 继续"是人下的命令</td></tr>
+<tr><td>产出·判断</td><td><span class="badge no">人保留</span></td><td>只提供证据包，不下结论</td><td>完全由人</td></tr>
+<tr><td>产出·基线</td><td><span class="badge auto">全自动</span></td><td>持续采集、维护、偏离告警</td><td>确认口径定义</td></tr>
+<tr><td>产出·证据链</td><td><span class="badge auto">全自动</span></td><td>append-only 轨迹、血缘、审计记录自动同步到不可变存储</td><td>留存期与访问策略由合规定</td></tr>
+</tbody>
+</table>
+
+<h3>4.2 逻辑顺序：先做哪几个</h3>
+<p>这些能力之间有依赖，顺序错了就跑不通。真正的起点不是"做一个问数 Agent"，而是<strong>② 日志挖口径</strong>——因为它同时产出指标候选和 Golden set 种子，是后面一切的燃料：</p>
+<p class="flowlog"><strong>①</strong> 日志挖口径（造指标 + 造评测集）→ <strong>②</strong> 基线自动采集（让收益可证伪）→ <strong>③</strong> 红队与回归评测自动化（守住门禁）→ <strong>④</strong> schema / 监管原文结构化（扩大覆盖面）→ <strong>⑤</strong> 证据链自动沉淀（能过审计）→ 最后才是会话式问数这层薄壳。</p>
+
+<h3>4.3 与前一份能力矩阵的关系</h3>
+<p>这和主报告第 8 章的"全生命周期能力矩阵"是<strong>同一批能力的不同切法</strong>：那份按"开发 → 测试 → 验证 → 发布"切，这份按"专家工作流"切。但这一章多出三样以前没有的——<strong>基线自动采集、日志挖口径、失败事故→红队用例</strong>。恰恰是前面说的"专家会做但没被要求"的那几件事，现在被证明同样可以交给 Agent，只是产出定位在草稿和证据，而非决定。</p>
+
+<div class="callout red">
+  <strong>红线：流程里 Agent 也不能碰的三件事</strong>
+  <p style="margin-bottom:0">① 不下"该不该做"的判断；② 不下"停止 / 继续"的结论；③ 不让任何产物自己生效。把这三件事交出去，副驾驶就变成自动驾驶——而"审核权在人"正是靠这三条守住的。Agent 跑得再好，也只是把证据、基线、草稿送到人面前。</p>
+</div>
+
+<div class="callout ok">
+  <p style="margin-bottom:0"><strong>一句话</strong>：这条流程里，凡是"把原始事实加工成候选"的活——解析、聚类、抽取、生成用例、采集基线、沉淀证据——Data Agent 都能做，也该做；凡是"下判断、做决定、让东西生效"的活，一律留给人。这正是它在 ETL 组边界内最实在的位置：<strong>不是替你决策，而是把决策所需的证据提前备好</strong>。</p>
+</div>
+
+<h2>五、一句话总结</h2>
+<div class="callout ok">
+  <p style="margin-bottom:0"><strong>资料汇编回答"别人怎么做"，专家回答"在你这里、从最原始的事实出发、该不该做、怎么证明它真的有效"。前者的产出是文档，后者的产出是判断、基线和可证伪的证据链。</strong>你前面 15 章补的是"知道什么"，这一版补的是"专家怎么想和怎么做"——两者合一，才是一份能过审计、能落地、也能及时止损的方案。</p>
+</div>
+
+<footer>
+  本文件为独立深度文档，刻意与 `global_bank_data_agent_solution.html`（15 章全景方案）分离，避免"更全"稀释"更深"。所列方法与工具均为公开可核查的业界实践，工具选型需结合银行现有技术栈与合规要求复核。
+</footer>
+
+</div>
+</body>
+</html>
